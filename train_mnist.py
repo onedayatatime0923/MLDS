@@ -1,37 +1,42 @@
 
-from util import Datamanager,DNN
 import sys
+import torch
+import torch.nn as nn
+from torch.autograd import Variable
+from util import Datamanager, CNN
 import numpy as np
-import argparse
+assert torch and nn and Variable
+
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '''''''''''''''''''''       setting option                           '''
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
 EPOCH = 40
-BATCH_SIZE = 2048 
-parser = argparse.ArgumentParser(description='setting module parameter.')
-parser.add_argument('-u','--unit', dest='unit',type=int,nargs='+',required=True)
-parser.add_argument('-o','--output', dest='output',type=str,required=True)
-args = parser.parse_args()
+BATCH_SIZE =512
+
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '''''''''''''''''''''       reading data                             '''
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 dm=Datamanager()
-print('getting data...',end='')
+print('reading data...',end='')
 sys.stdout.flush()
-dm.get_data('train',BATCH_SIZE)
-dm.get_data('test',BATCH_SIZE,False)
-print('\rgetting data...finish')
+dm.get_Mnist('train',BATCH_SIZE)
+print('\rreading data...finish')
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '''''''''''''''''''''       training                                 '''
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-dnn = DNN(args).double().cuda()
-print(dnn)
-print(dm.count_parameters(dnn))
-lost=[]
+cnn = CNN().cuda()
+print(cnn)
+print(dm.count_parameters(cnn))
 # training and testing
+loss_list=[]
+accu_list=[]
 for epoch in range(EPOCH):
-    lost.append(dm.train(dnn,dm.data['train'],epoch,'mse'))
-np.save('loss_'+args.output+'.npy',np.array(lost))
-test=dm.test(dnn,dm.data['test'])
-np.save('prediction_'+args.output+'.npy',np.array(test))
+    dm.train(cnn,dm.data['train'][0],epoch,'cross_entropy')
+    loss,accu=dm.val(cnn,dm.data['train'][1],epoch)
+    loss_list.append(loss)
+    accu_list.append(accu)
+np.save('loss.npy',np.array(loss_list))
+np.save('accu.npy',np.array(accu_list))
+
