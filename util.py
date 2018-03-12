@@ -63,7 +63,7 @@ class Datamanager():
         elapsed= time.time() - start
         total_loss/= len(trainloader.dataset)
         print('\nTime: {}:{}'.format(int(elapsed/60),int(elapsed%60)))
-        print('Total loss: {:.4f}\n'.format(total_loss))
+        print('Total loss: {:.4f}'.format(total_loss))
         return total_loss
     def val(self,model,valloader,epoch):
         model.eval()
@@ -117,16 +117,39 @@ class DNN(nn.Module):
 class CNN(nn.Module):
     def __init__(self):
         super(CNN, self).__init__()
-        self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
-        self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
-        self.conv2_drop = nn.Dropout2d()
-        self.fc1 = nn.Linear(320, 50)
-        self.fc2 = nn.Linear(50, 10)
+        self.conv1 = nn.Sequential(                 # input shape (1, 28, 28)
+            nn.Conv2d(1, 8, 5, 1, 2),              # output shape (3, 28, 28)
+            nn.ReLU(),
+            nn.AvgPool2d(kernel_size=2),            # output shape (3, 14, 14)
+        )
+        self.conv2 = nn.Sequential(                 # input shape (1, 14, 14)
+            nn.Conv2d(8, 5, 5, 1, 2),              # output shape (3, 14, 14)
+            nn.ReLU(),
+            nn.AvgPool2d(kernel_size=2),            # output shape (3, 7, 7)
+        )
+        self.conv3 = nn.Sequential(
+            nn.Conv2d(5, 5, 3, 1, 1),              # output shape (5, 7, 7)
+            nn.ReLU(),
+            nn.AvgPool2d(kernel_size=2),            # output shape (5, 3, 3)
+        )
+        self.conv4 = nn.Sequential(
+            nn.Conv2d(5, 5, 3, 1, 1),              # output shape (5, 3, 3)
+            nn.ReLU(),
+            #nn.AvgPool2d(kernel_size=2),            # output shape (5, 1, 1)
+        )
+        self.den1= nn.Sequential(
+            nn.Linear(5* 3 * 3, 8),
+            nn.ReLU(),
+        )
+        self.den2= nn.Sequential(
+            nn.Linear(8, 10),
+        )
     def forward(self, x):
-        x = F.relu(F.max_pool2d(self.conv1(x), 2))
-        x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
-        x = x.view(-1, 320)
-        x = F.relu(self.fc1(x))
-        x = F.dropout(x, training=self.training)
-        x = self.fc2(x)
-        return F.log_softmax(x, dim=1)
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.conv3(x)
+        x = self.conv4(x)
+        x = x.view(x.size(0), -1)
+        x= self.den1(x)
+        x= self.den2(x)
+        return x 

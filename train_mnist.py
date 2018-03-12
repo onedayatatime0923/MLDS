@@ -11,7 +11,7 @@ assert torch and nn and Variable
 '''''''''''''''''''''       setting option                           '''
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-EPOCH = 40
+EPOCH = 80
 BATCH_SIZE =512
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -28,7 +28,7 @@ print('\rreading data...finish')
 
 cnn = CNN().cuda()
 print(cnn)
-print(dm.count_parameters(cnn))
+print('total parameters: {}'.format(dm.count_parameters(cnn)))
 # training and testing
 loss_list=[]
 accu_list=[]
@@ -37,6 +37,8 @@ for epoch in range(EPOCH):
     loss,accu=dm.val(cnn,dm.data['train'][1],epoch)
     loss_list.append(loss)
     accu_list.append(accu)
-np.save('loss.npy',np.array(loss_list))
-np.save('accu.npy',np.array(accu_list))
+print(len(loss_list))
+print(len(accu_list))
+np.save('mnist_loss_d.npy',np.array(loss_list))
+np.save('mnist_accu_d.npy',np.array(accu_list))
 
