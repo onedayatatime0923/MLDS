@@ -33,6 +33,21 @@ class Datamanager():
                         ])),
                     batch_size=b_size, shuffle=True)
         self.data[name]=[train_loader,test_loader]
+    def get_CIFAR10(self,name,b_size):
+        train_loader = torch.utils.data.DataLoader(
+                datasets.CIFAR10('data', train=True, download=True,
+                    transform=transforms.Compose([
+                        transforms.ToTensor(),
+                        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+                        ])),
+                    batch_size=b_size, shuffle=True)
+        test_loader = torch.utils.data.DataLoader(
+                datasets.CIFAR10('data', train=False, transform=transforms.Compose([
+                        transforms.ToTensor(),
+                        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+                        ])),
+                    batch_size=b_size, shuffle=True)
+        self.data[name]=[train_loader,test_loader]
     def load_np(self,name,path):
         self.data[name]=np.load(path)
     def train(self,model,trainloader,epoch,loss):
@@ -48,14 +63,14 @@ class Datamanager():
         total_loss=0
         
         for batch_index, (x, y) in enumerate(trainloader):
-            x, y= Variable(x).cuda(), Variable(y).cuda()
+            x, y= Variable(x).cuda(), Variable(y).cuda() 
             output = model(x)
             loss = loss_func(output,y)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             if batch_index % 4 == 0:
-                print('\rTrain Epoch: {} | [{}/{} ({:.0f}%)]\t | Loss: {:.6f}'.format(
+                print('\rTrain Epoch: {} | [{}/{} ({:.0f}%)]\t |  Loss: {:.6f}'.format(
                         epoch, batch_index * len(x), len(trainloader.dataset),
                         100. * batch_index / len(trainloader), loss.data[0]),end='')
 
@@ -73,7 +88,9 @@ class Datamanager():
             x, y = Variable(x, volatile=True).cuda(), Variable(y,volatile=True).cuda()
             output = model(x)
             test_loss += F.cross_entropy(output, y, size_average=False).data[0] # sum up batch loss
-            pred = output.data.max(1, keepdim=True)[1] # get the index of the max log-probability
+            #print('cross_entropy:',F.cross_entropy(output, y, size_average=False).data.size())
+            pred = output.data.max(1,keepdim=True)[1] # get the index of the max log-probability
+            #print('max:',output.data.max(1, keepdim=True).size())
             correct += pred.eq(y.data.view_as(pred)).long().cpu().sum()
 
         test_loss /= len(valloader.dataset)
@@ -114,36 +131,40 @@ class DNN(nn.Module):
         for i in self.den:
             x= i(x)
         return x 
+        """
 class CNN(nn.Module):
     def __init__(self):
         super(CNN, self).__init__()
-        self.conv1 = nn.Sequential(                 # input shape (1, 28, 28)
-            nn.Conv2d(1, 8, 5, 1, 2),              # output shape (3, 28, 28)
+        self.conv1 = nn.Sequential(                 # input shape (3, 32, 32)
+            nn.Conv2d(3, 8, 5, 1, 2),              # output shape (8, 32, 32)
             nn.ReLU(),
-            nn.AvgPool2d(kernel_size=2),            # output shape (3, 14, 14)
+            nn.AvgPool2d(kernel_size=2),            # output shape (8, 16, 16)
         )
-        self.conv2 = nn.Sequential(                 # input shape (1, 14, 14)
-            nn.Conv2d(8, 5, 5, 1, 2),              # output shape (3, 14, 14)
+        self.conv2 = nn.Sequential(                 # input shape (8, 16, 16)
+            nn.Conv2d(8, 5, 5, 1, 2),              # output shape (5, 16, 16)
             nn.ReLU(),
-            nn.AvgPool2d(kernel_size=2),            # output shape (3, 7, 7)
+            nn.AvgPool2d(kernel_size=2),            # output shape (5, 8, 8)
         )
-        self.conv3 = nn.Sequential(
-            nn.Conv2d(5, 5, 3, 1, 1),              # output shape (5, 7, 7)
+        self.conv3 = nn.Sequential(                 # input shape (5, 8, 8)
+            nn.Conv2d(5, 5, 3, 1, 1),              # output shape (5, 8, 8)
             nn.ReLU(),
-            nn.AvgPool2d(kernel_size=2),            # output shape (5, 3, 3)
+            nn.AvgPool2d(kernel_size=2),            # output shape (5, 4, 4)
         )
-        self.conv4 = nn.Sequential(
-            nn.Conv2d(5, 5, 3, 1, 1),              # output shape (5, 3, 3)
+        self.conv4 = nn.Sequential(                 # input shape (5, 4, 4)
+            nn.Conv2d(5, 5, 3, 1, 1),              # output shape (5, 4, 4)
             nn.ReLU(),
-            #nn.AvgPool2d(kernel_size=2),            # output shape (5, 1, 1)
+            #nn.AvgPool2d(kernel_size=2),            # output shape (5, 2, 2)
         )
         self.den1= nn.Sequential(
-            nn.Linear(5* 3 * 3, 8),
+            nn.Linear(5* 4 *4, 40),
             nn.ReLU(),
         )
         self.den2= nn.Sequential(
-            nn.Linear(8, 10),
+            nn.Linear(40, 20),
         )
+        self.den3= nn.Sequential(
+            nn.Linear(20, 10),
+        )        
     def forward(self, x):
         x = self.conv1(x)
         x = self.conv2(x)
@@ -152,4 +173,53 @@ class CNN(nn.Module):
         x = x.view(x.size(0), -1)
         x= self.den1(x)
         x= self.den2(x)
+        x= self.den3(x)
+        return x 
+"""
+class CNN(nn.Module):
+    def __init__(self):
+        super(CNN, self).__init__()
+        self.conv1 = nn.Sequential(                 # input shape (3, 32, 32)
+            nn.Conv2d(3, 8, 5, 1, 2),              # output shape (8, 32, 32)
+            nn.ReLU(),
+            nn.AvgPool2d(kernel_size=2),            # output shape (8, 16, 16)
+        )
+        self.conv2 = nn.Sequential(                 # input shape (8, 16, 16)
+            nn.Conv2d(8, 16, 5, 1, 2),              # output shape (16, 16, 16)
+            nn.ReLU(),
+            nn.AvgPool2d(kernel_size=2),            # output shape (16, 8, 8)
+        )
+        self.conv3 = nn.Sequential(                 # input shape (16, 8, 8)
+            nn.Conv2d(16, 32, 3, 1, 1),              # output shape (32, 8, 8)
+            nn.ReLU(),
+            nn.AvgPool2d(kernel_size=2),            # output shape (32, 4, 4)
+        )
+        self.conv4 = nn.Sequential(                 # input shape (32, 4, 4)
+            nn.Conv2d(32, 64, 3, 1, 1),              # output shape (64, 4, 4)
+            nn.ReLU(),
+            #nn.AvgPool2d(kernel_size=2),            # output shape (5, 2, 2)
+        )
+        self.den1= nn.Sequential(
+            nn.Linear(64* 4 *4, 512),
+            nn.ReLU(),
+        )
+        self.den2= nn.Sequential(
+            nn.Linear(512, 128),
+        )
+        self.den3= nn.Sequential(
+            nn.Linear(128, 48),
+        )        
+        self.den4= nn.Sequential(
+            nn.Linear(48, 10),
+        ) 
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.conv3(x)
+        x = self.conv4(x)
+        x = x.view(x.size(0), -1)
+        x= self.den1(x)
+        x= self.den2(x)
+        x= self.den3(x)
+        x= self.den4(x)
         return x 
