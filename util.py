@@ -131,51 +131,7 @@ class DNN(nn.Module):
         for i in self.den:
             x= i(x)
         return x 
-        """
-class CNN(nn.Module):
-    def __init__(self):
-        super(CNN, self).__init__()
-        self.conv1 = nn.Sequential(                 # input shape (3, 32, 32)
-            nn.Conv2d(3, 8, 5, 1, 2),              # output shape (8, 32, 32)
-            nn.ReLU(),
-            nn.AvgPool2d(kernel_size=2),            # output shape (8, 16, 16)
-        )
-        self.conv2 = nn.Sequential(                 # input shape (8, 16, 16)
-            nn.Conv2d(8, 5, 5, 1, 2),              # output shape (5, 16, 16)
-            nn.ReLU(),
-            nn.AvgPool2d(kernel_size=2),            # output shape (5, 8, 8)
-        )
-        self.conv3 = nn.Sequential(                 # input shape (5, 8, 8)
-            nn.Conv2d(5, 5, 3, 1, 1),              # output shape (5, 8, 8)
-            nn.ReLU(),
-            nn.AvgPool2d(kernel_size=2),            # output shape (5, 4, 4)
-        )
-        self.conv4 = nn.Sequential(                 # input shape (5, 4, 4)
-            nn.Conv2d(5, 5, 3, 1, 1),              # output shape (5, 4, 4)
-            nn.ReLU(),
-            #nn.AvgPool2d(kernel_size=2),            # output shape (5, 2, 2)
-        )
-        self.den1= nn.Sequential(
-            nn.Linear(5* 4 *4, 40),
-            nn.ReLU(),
-        )
-        self.den2= nn.Sequential(
-            nn.Linear(40, 20),
-        )
-        self.den3= nn.Sequential(
-            nn.Linear(20, 10),
-        )        
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.conv2(x)
-        x = self.conv3(x)
-        x = self.conv4(x)
-        x = x.view(x.size(0), -1)
-        x= self.den1(x)
-        x= self.den2(x)
-        x= self.den3(x)
-        return x 
-"""
+
 class CNN(nn.Module):
     def __init__(self):
         super(CNN, self).__init__()
