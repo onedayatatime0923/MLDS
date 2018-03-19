@@ -12,9 +12,13 @@ assert F
 class Datamanager():
     def __init__(self):
         self.data={}
-    def get_data(self,name,b_size,shuf=True):
-        X=np.linspace(-5,5,300000).reshape((-1,1))
-        Y=np.exp(np.sinc(X))
+    def get_data(self,name,func,b_size,shuf=True):
+        X=np.linspace(-5,5,30000).reshape((-1,1))
+        if func==1:
+            Y=np.exp(np.sinc(5*X))
+        elif func==2:
+            Y=np.sign(np.sin(5*X))
+        else: return ValueError('Wrong function.')
         X,Y=torch.from_numpy(X).double().cuda(),torch.from_numpy(Y).double().cuda()
         train_dataset = Data.TensorDataset(data_tensor=X[:], target_tensor=Y[:]) 
         self.data[name]=Data.DataLoader(dataset=train_dataset, batch_size=b_size, shuffle=shuf)
@@ -77,7 +81,7 @@ class Datamanager():
             total_loss+= loss.data[0]*len(x) # sum up batch loss
         elapsed= time.time() - start
         total_loss/= len(trainloader.dataset)
-        print('\nTime: {}:{}'.format(int(elapsed/60),int(elapsed%60)))
+        print('\nTime: {}:{}\t | '.format(int(elapsed/60),int(elapsed%60)),end='')
         print('Total loss: {:.4f}'.format(total_loss))
         return total_loss
     def val(self,model,valloader,epoch):
@@ -94,7 +98,7 @@ class Datamanager():
             correct += pred.eq(y.data.view_as(pred)).long().cpu().sum()
 
         test_loss /= len(valloader.dataset)
-        print('Val set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
+        print('Val set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)'.format(
             test_loss, correct, len(valloader.dataset),
             100. * correct / len(valloader.dataset)))
         return test_loss,100 * correct / len(valloader.dataset)
@@ -133,49 +137,165 @@ class DNN(nn.Module):
         return x 
 
 class CNN(nn.Module):
-    def __init__(self):
+    def __init__(self,mode):
         super(CNN, self).__init__()
-        self.conv1 = nn.Sequential(                 # input shape (3, 32, 32)
-            nn.Conv2d(3, 8, 5, 1, 2),              # output shape (8, 32, 32)
-            nn.ReLU(),
-            nn.AvgPool2d(kernel_size=2),            # output shape (8, 16, 16)
-        )
-        self.conv2 = nn.Sequential(                 # input shape (8, 16, 16)
-            nn.Conv2d(8, 16, 5, 1, 2),              # output shape (16, 16, 16)
-            nn.ReLU(),
-            nn.AvgPool2d(kernel_size=2),            # output shape (16, 8, 8)
-        )
-        self.conv3 = nn.Sequential(                 # input shape (16, 8, 8)
-            nn.Conv2d(16, 32, 3, 1, 1),              # output shape (32, 8, 8)
-            nn.ReLU(),
-            nn.AvgPool2d(kernel_size=2),            # output shape (32, 4, 4)
-        )
-        self.conv4 = nn.Sequential(                 # input shape (32, 4, 4)
-            nn.Conv2d(32, 64, 3, 1, 1),              # output shape (64, 4, 4)
-            nn.ReLU(),
-            #nn.AvgPool2d(kernel_size=2),            # output shape (5, 2, 2)
-        )
-        self.den1= nn.Sequential(
-            nn.Linear(64* 4 *4, 512),
-            nn.ReLU(),
-        )
-        self.den2= nn.Sequential(
-            nn.Linear(512, 128),
-        )
-        self.den3= nn.Sequential(
-            nn.Linear(128, 48),
-        )        
-        self.den4= nn.Sequential(
-            nn.Linear(48, 10),
-        ) 
+        self.mode=mode
+        if mode=='mnist_deep':
+            self.conv1 = nn.Sequential(                 # input shape (1, 28, 28)
+                nn.Conv2d(1, 5, 3, 1, 1),              # output shape (3, 28, 28)
+                nn.ReLU(),
+                #nn.AvgPool2d(kernel_size=2),            # output shape (5, 14, 14)
+            )
+            self.conv2 = nn.Sequential(
+                nn.Conv2d( 5,  5, 3, 1, 1),              # output shape (5, 14, 14)
+                nn.ReLU(),
+                nn.AvgPool2d(kernel_size=2),            # output shape ( 5, 7, 7)
+            )
+            self.conv3 = nn.Sequential(
+                nn.Conv2d( 5,  5, 3, 1, 1),              # output shape ( 5, 7, 7)
+                nn.ReLU(),
+                nn.AvgPool2d(kernel_size=7),            # output shape ( 5, 3, 3)
+            )
+            self.den1= nn.Sequential(
+                nn.Linear(5* 2 *2,  32),
+                nn.ReLU(),
+            )
+            self.den2= nn.Sequential(
+                nn.Linear( 32,  32),
+                nn.ReLU(),
+            )
+            self.den3= nn.Sequential(
+                nn.Linear( 32, 10),
+            ) 
+        elif mode=='mnist_medium':
+            self.conv1 = nn.Sequential(                 # input shape (1, 28, 28)
+                nn.Conv2d(1, 2, 3, 1, 1),              # output shape (5, 28, 28)
+                nn.ReLU(),
+                nn.AvgPool2d(kernel_size=2),            # output shape (5, 14, 14)
+            )
+            self.conv2 = nn.Sequential(
+                nn.Conv2d( 2,  4, 3, 1, 1),              # output shape (5, 14, 14)
+                nn.ReLU(),
+                nn.AvgPool2d(kernel_size=4),            # output shape ( 5, 3, 3)
+            )
+            self.den1= nn.Sequential(
+                nn.Linear(4* 3 *3,  32),
+                nn.ReLU(),
+            )
+            self.den2= nn.Sequential(
+                nn.Linear( 32,  32),
+                nn.ReLU(),
+            )
+            self.den3= nn.Sequential(
+                nn.Linear( 32, 10),
+            ) 
+        elif mode=='mnist_shallow':
+            self.conv1 = nn.Sequential(                 # input shape (1, 28, 28)
+                nn.Conv2d(1, 4, 3, 1, 1),              # output shape (5, 28, 28)
+                nn.ReLU(),
+                nn.AvgPool2d(kernel_size=8),            # output shape (5,  7,  7)
+            )
+            self.den1= nn.Sequential(
+                nn.Linear(4* 3 *3,  32),
+                nn.ReLU(),
+            )
+            self.den2= nn.Sequential(
+                nn.Linear( 32,  32),
+                nn.ReLU(),
+            )
+            self.den3= nn.Sequential(
+                nn.Linear( 32, 10),
+            ) 
+        elif mode=='cifar_deep':
+            self.conv1 = nn.Sequential(                 # input shape (3, 32, 32)
+                nn.Conv2d(3, 8, 5, 1, 2),              # output shape (3, 32, 32)
+                nn.ReLU(),
+                nn.AvgPool2d(kernel_size=2),            # output shape (5, 16, 16)
+            )
+            self.conv2 = nn.Sequential(
+                nn.Conv2d( 8,  8, 5, 1, 2),              # output shape (5, 16, 16)
+                nn.ReLU(),
+                nn.AvgPool2d(kernel_size=2),            # output shape ( 5, 8, 8)
+            )
+            self.conv3 = nn.Sequential(
+                nn.Conv2d( 8,  8, 5, 1, 2),              # output shape ( 5, 8, 8)
+                nn.ReLU(),
+                nn.AvgPool2d(kernel_size=2),            # output shape ( 5, 4, 4)
+            )
+            self.den1= nn.Sequential(
+                nn.Linear(8* 4 *4,  128),
+                nn.ReLU(),
+            )
+            self.den2= nn.Sequential(
+                nn.Linear(128, 128),
+                nn.ReLU(),
+            )
+            self.den3= nn.Sequential(
+                nn.Linear(128, 10),
+            )
+            '''
+            self.conv1 = nn.Sequential(                 # input shape (3, 32, 32)
+                nn.Conv2d(3, 8, 5, 1, 2),              # output shape (8, 32, 32)
+                nn.ReLU(),
+                nn.AvgPool2d(kernel_size=2),            # output shape (8, 16, 16)
+            )
+            self.conv2 = nn.Sequential(                 # input shape (8, 16, 16)
+                nn.Conv2d(8, 16, 5, 1, 2),              # output shape (16, 16, 16)
+                nn.ReLU(),
+                nn.AvgPool2d(kernel_size=2),            # output shape (16, 8, 8)
+            )
+            self.conv3 = nn.Sequential(                 # input shape (16, 8, 8)
+                nn.Conv2d(16, 32, 3, 1, 1),              # output shape (32, 8, 8)
+                nn.ReLU(),
+                nn.AvgPool2d(kernel_size=2),            # output shape (32, 4, 4)
+            )
+            self.conv4 = nn.Sequential(                 # input shape (32, 4, 4)
+                nn.Conv2d(32, 64, 3, 1, 1),              # output shape (64, 4, 4)
+                nn.ReLU(),
+                #nn.AvgPool2d(kernel_size=2),            # output shape (5, 2, 2)
+            )
+            self.den1= nn.Sequential(
+                nn.Linear(64* 4 *4, 512),
+                nn.ReLU(),
+            )
+            self.den2= nn.Sequential(
+                nn.Linear(512, 128),
+            )
+            self.den3= nn.Sequential(
+                nn.Linear(128, 48),
+            )        
+            self.den4= nn.Sequential(
+                nn.Linear(48, 10),
+            ) 
+            '''
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.conv2(x)
-        x = self.conv3(x)
-        x = self.conv4(x)
-        x = x.view(x.size(0), -1)
-        x= self.den1(x)
-        x= self.den2(x)
-        x= self.den3(x)
-        x= self.den4(x)
+        if self.mode=='mnist_deep':
+            x = self.conv1(x)
+            x = self.conv2(x)
+            x = self.conv3(x)
+            x = x.view(x.size(0), -1)
+            x= self.den1(x)
+            x= self.den2(x)
+            x= self.den3(x)
+        elif self.mode=='mnist_medium':
+            x = self.conv1(x)
+            x = self.conv2(x)
+            x = x.view(x.size(0), -1)
+            x= self.den1(x)
+            x= self.den2(x)
+            x= self.den3(x)
+        elif self.mode=='mnist_shallow':
+            x = self.conv1(x)
+            x = x.view(x.size(0), -1)
+            x= self.den1(x)
+            x= self.den2(x)
+            x= self.den3(x)
+        elif self.mode=='cifar_deep':
+            x = self.conv1(x)
+            x = self.conv2(x)
+            x = self.conv3(x)
+            x = x.view(x.size(0), -1)
+            x= self.den1(x)
+            x= self.den2(x)
+            x= self.den3(x)
         return x 
