@@ -58,7 +58,7 @@ class Datamanager():
         start= time.time()
 
         model.train()
-        optimizer = torch.optim.Adam(model.parameters(),lr=0.001)   # optimize all cnn parameters
+        optimizer = torch.optim.Adam(model.parameters(),lr=0.0001)   # optimize all cnn parameters
         if loss=='mse':
             loss_func = nn.MSELoss()
         elif loss=='cross_entropy':
