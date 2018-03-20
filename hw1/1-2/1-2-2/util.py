@@ -24,14 +24,14 @@ class Datamanager():
         self.data[name]=Data.DataLoader(dataset=train_dataset, batch_size=b_size, shuffle=shuf)
     def get_Mnist(self,name,b_size):
         train_loader = torch.utils.data.DataLoader(
-                datasets.MNIST('data', train=True, download=True,
+                datasets.MNIST('../../../dataset', train=True, download=True,
                     transform=transforms.Compose([
                         transforms.ToTensor(),
                         transforms.Normalize((0.1307,), (0.3081,))
                         ])),
                     batch_size=b_size, shuffle=True)
         test_loader = torch.utils.data.DataLoader(
-                datasets.MNIST('data', train=False, transform=transforms.Compose([
+                datasets.MNIST('../../../dataset', train=False, transform=transforms.Compose([
                         transforms.ToTensor(),
                         transforms.Normalize((0.1307,), (0.3081,))
                         ])),
@@ -121,7 +121,6 @@ class Datamanager():
 class DNN(nn.Module):
     def __init__(self,args):
         super(DNN, self).__init__()
-        print(args.unit)
         self.den=nn.ModuleList()
         self.den.append( nn.Sequential(
             nn.Linear(28*28, args.unit[0]),
@@ -135,7 +134,6 @@ class DNN(nn.Module):
         self.den.append( nn.Sequential(
             nn.Linear(args.unit[-2], args.unit[-1]),
         ))
-        print(self.den)
     def forward(self, x):
         x = x.view(x.size(0), -1)
         for i in self.den:

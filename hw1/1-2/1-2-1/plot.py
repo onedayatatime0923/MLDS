@@ -10,6 +10,7 @@ parser = argparse.ArgumentParser(description='setting module parameter.')
 parser.add_argument('-i','--input', dest='input',nargs='+',type=str,required=True)
 parser.add_argument('-o','--output', dest='output',type=str,required=True)
 args = parser.parse_args()
+color=['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '''''''''''''''       plot parameter                                 '''
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -21,12 +22,16 @@ for i in range(len(args.input)):
 dm.pca_construct(para_total,2)
 for i in range(len(args.input)):
     data=dm.pca_transform(dm.data['para{}'.format(i)])
-    plt.scatter(data[:][0], data[:][1], s=1) 
+    for j in range(len(data)):
+        text=np.mean(dm.data['para'+str(i)][j]**2)
+        plt.text(data[j][0], data[j][1], text,fontdict={'size': 10, 'color': color[i]}) 
 
-plt.xticks(())  # ignore xticks
-plt.yticks(())  # ignore yticks
+plt.xlim(-6, 10)
+plt.ylim(-10, 10)
+#plt.xticks(())  # ignore xticks
+#plt.yticks(())  # ignore yticks
 
 plt.show()
-plt.savefig(args.output)
+#plt.savefig(args.output)
 '''
 '''
