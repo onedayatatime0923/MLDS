@@ -13,9 +13,9 @@ class Datamanager():
     def __init__(self):
         self.data={}
     def get_data(self,name,func,b_size,shuf=True):
-        X=np.linspace(-5,5,30000).reshape((-1,1))
+        X=np.linspace(-5,5,300000).reshape((-1,1))
         if func==1:
-            Y=np.exp(np.sinc(5*X))
+            Y=np.exp(5*np.sinc(5*X))
         elif func==2:
             Y=np.sign(np.sin(5*X))
         else: return ValueError('Wrong function.')
@@ -58,7 +58,7 @@ class Datamanager():
         start= time.time()
 
         model.train()
-        optimizer = torch.optim.Adam(model.parameters(),lr=0.001)   # optimize all cnn parameters
+        optimizer = torch.optim.Adam(model.parameters())   # optimize all cnn parameters
         if loss=='mse':
             loss_func = nn.MSELoss()
         elif loss=='cross_entropy':
