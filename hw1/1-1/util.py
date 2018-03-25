@@ -15,9 +15,9 @@ class Datamanager():
     def get_data(self,name,func,b_size,shuf=True):
         X=np.linspace(-5,5,300000).reshape((-1,1))
         if func==1:
-            Y=np.exp(5*np.sinc(5*X))
+            Y=np.exp(2*np.sin(5*X))
         elif func==2:
-            Y=np.sign(np.sin(5*X))
+            Y=np.sign(np.sin(8*X))
         else: return ValueError('Wrong function.')
         X,Y=torch.from_numpy(X).double().cuda(),torch.from_numpy(Y).double().cuda()
         train_dataset = Data.TensorDataset(data_tensor=X[:], target_tensor=Y[:]) 
