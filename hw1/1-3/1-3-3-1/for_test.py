@@ -49,17 +49,25 @@ for beta in beta_list:
 cnn1=torch.load('weights/64')
 cnn2=torch.load('weights/1024')
 out={}
-beta_list = np.linspace(-1,2,100)
+beta_list = np.linspace(-1,2,300)
 print(beta_list)
 cnn_list=[]
 loss_list=[]
 accu_list=[]
+train_record=[]
+test_record=[]
 for beta in beta_list:
     for i in cnn1:
         out[i]=cnn1[i]*beta + cnn2[i]*(1-beta)
     cnn_tmp=CNN().cuda()
     cnn_tmp.load_state_dict(out)
-    loss,accu=dm.val(cnn_tmp,'Val',dm.data['mnist'][1])
-    loss_list.append(loss)
-    accu_list.append(accu)
+    print(beta)
+    train_record.append(dm.val(cnn_tmp,'Train',dm.data['mnist'][0]))
+    test_record.append(dm.val(cnn_tmp,'Val',dm.data['mnist'][1]))
+    print()
+    #loss,accu=dm.val(cnn_tmp,'Val',dm.data['mnist'][1])
+    #loss_list.append(loss)
+    #accu_list.append(accu)
 
+np.save('./record/train.npy',np.array(train_record))
+np.save('./record/val.npy',np.array(test_record))
