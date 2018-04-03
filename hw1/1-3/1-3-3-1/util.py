@@ -139,7 +139,6 @@ class CNN(nn.Module):
         )
         self.den4= nn.Sequential(
             nn.Linear(512,10),
-            nn.ReLU(),
         )
         
     def forward(self, x):

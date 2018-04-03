@@ -14,13 +14,13 @@ assert torch and nn and Variable and np
 
 parser = argparse.ArgumentParser(description='setting module parameter.')
 parser.add_argument('-b','--batch', dest='BATCH_SIZE',type=int,required=True)
-#parser.add_argument('-m','--mode', dest='mode',type=str,required=True)
+parser.add_argument('-p','--path', dest='PATH',type=str,required=True)
 #parser.add_argument('-lo','--loss_output', dest='loss_output',type=str,required=True)
 #parser.add_argument('-ao','--accu_output', dest='accu_output',type=str,required=True)
 args = parser.parse_args()
 
 EPOCH = 30
-BATCH_SIZE =args.BATCH_SIZE
+BATCH_SIZE = args.BATCH_SIZE
 ############################################################
 #               reading data                               #
 ############################################################
@@ -42,10 +42,10 @@ test_record=[]
 
 for epoch in range(EPOCH):
     dm.train(cnn,dm.data['mnist'][0],epoch,'cross_entropy')
-    train_record.append(dm.val(cnn,'Train',dm.data['mnist'][0]))
-    test_record.append(dm.val(cnn,'Val',dm.data['mnist'][1]))
-    print('-'*60)
+    dm.val(cnn,'Train',dm.data['mnist'][0])
+    dm.val(cnn,'Val',dm.data['mnist'][1])
+    print('-'*66)
 
 #np.save('record/train.npy',np.array(train_record))
 #np.save('record/test.npy',np.array(test_record))
-torch.save(cnn.state_dict(), 'weights/1024')
+torch.save(cnn.state_dict(), args.PATH)
