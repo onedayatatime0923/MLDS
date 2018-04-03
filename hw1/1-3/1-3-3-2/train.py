@@ -19,7 +19,7 @@ parser.add_argument('-cr','--clear_record', dest='clear_record',action='store_tr
 #parser.add_argument('-lo','--loss_output', dest='loss_output',type=str,required=True)
 #parser.add_argument('-ao','--accu_output', dest='accu_output',type=str,required=True)
 args = parser.parse_args()
-EPOCH = 1
+EPOCH = 30
 BATCH_SIZE = args.batch
 ############################################################
 #               reading data                               #
