@@ -7,10 +7,11 @@ assert DNN and plt and np
 
 dm=Datamanager()
 parser = argparse.ArgumentParser(description='setting module parameter.')
+parser.add_argument('-m','--mode', dest='mode',type=str,required=True)
 parser.add_argument('-i','--input', dest='input',nargs='+',type=str,required=True)
 parser.add_argument('-o','--output', dest='output',type=str,required=True)
 args = parser.parse_args()
-color=['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
+color=['C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9']
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '''''''''''''''       plot parameter                                 '''
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -18,17 +19,17 @@ para_total=[]
 for i in range(len(args.input)):
     dm.load_np('para{}'.format(i),args.input[i])
     para_total.extend(list(dm.data['para{}'.format(i)][:,1:]))
-print(np.array(para_total).shape)
 
 dm.pca_construct(para_total,2)
 for i in range(len(args.input)):
     data=dm.pca_transform(dm.data['para{}'.format(i)][:,1:])
     for j in range(len(data)):
-        text=dm.data['para'+str(i)][i:0]
+        text='{:.2f}'.format(dm.data['para'+str(i)][j,0])
         plt.text(data[j][0], data[j][1], text,fontdict={'size': 10, 'color': color[i]}) 
 
-plt.xlim(-6, 10)
+plt.xlim(-10, 10)
 plt.ylim(-10, 10)
+plt.title(args.mode)
 
 #plt.show()
 plt.savefig(args.output)

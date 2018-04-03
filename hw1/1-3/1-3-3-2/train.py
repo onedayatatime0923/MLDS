@@ -44,8 +44,8 @@ for epoch in range(EPOCH):
     #dm.val(cnn,'Train',dm.data['mnist'][0])
     #dm.val(cnn,'Val',dm.data['mnist'][1])
     print('-'*50)
-train_record=np.array([parameters]+dm.val(cnn,'Train',dm.data['mnist'][0])).reshape((1,4))
-test_record=np.array([parameters]+dm.val(cnn,'Val',dm.data['mnist'][1])).reshape((1,4))
+train_record=np.array([BATCH_SIZE]+dm.val(cnn,'Train',dm.data['mnist'][0])).reshape((1,4))
+test_record=np.array([BATCH_SIZE]+dm.val(cnn,'Val',dm.data['mnist'][1])).reshape((1,4))
 
 
 if not args.clear_record:
