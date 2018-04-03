@@ -40,8 +40,8 @@ print('total parameters: {}'.format(parameters))
 # training and testing
 for epoch in range(EPOCH):
     dm.train(cnn,dm.data['mnist'][0],epoch,'cross_entropy')
-    dm.val(cnn,'Train',dm.data['mnist'][0])
-    dm.val(cnn,'Val',dm.data['mnist'][1])
+    #dm.val(cnn,'Train',dm.data['mnist'][0])
+    #dm.val(cnn,'Val',dm.data['mnist'][1])
     print('-'*50)
 train_record=np.array([parameters]+dm.val(cnn,'Train',dm.data['mnist'][0])).reshape((1,3))
 test_record=np.array([parameters]+dm.val(cnn,'Val',dm.data['mnist'][1])).reshape((1,3))
