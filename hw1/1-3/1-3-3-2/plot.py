@@ -18,14 +18,15 @@ args = parser.parse_args()
 ############################################################
 dm.load_np('train','record/train.npy')
 dm.load_np('test','record/test.npy')
+x=[4,8,16,32,64,128,256,512]
 ############################################################
 #               plot loss                                  #
 ############################################################
 fig, ax1 = plt.subplots()
 ax2 = ax1.twinx()
-ax1.plot(dm.data['train'][:,0],dm.data['train'][:,1],c='b',label='train')
-ax1.plot(dm.data['test'][:,0],dm.data['test'][:,1],c='g',label='test')
-ax2.plot(dm.data['train'][:,0],dm.data['train'][:,3],c='y',label='sensitivity')
+ax1.plot(x,dm.data['train'][:,1],c='b',label='train')
+ax1.plot(x,dm.data['test'][:,1],c='g',label='test')
+ax2.plot(x,dm.data['train'][:,3],c='y',label='sensitivity')
 plt.title('Loss')
 plt.legend()
 plt.savefig(args.loss_output)
@@ -34,9 +35,9 @@ plt.savefig(args.loss_output)
 ############################################################
 fig, ax1 = plt.subplots()
 ax2 = ax1.twinx()
-ax1.plot(dm.data['train'][:,0],dm.data['train'][:,2],c='b',label='train')
-ax1.plot(dm.data['test'][:,0],dm.data['test'][:,2],c='g',label='test')
-ax2.plot(dm.data['train'][:,0],dm.data['train'][:,3],c='y',label='sensitivity')
+ax1.plot(x,dm.data['train'][:,2],c='b',label='train')
+ax1.plot(x,dm.data['test'][:,2],c='g',label='test')
+ax2.plot(x,dm.data['train'][:,3],c='y',label='sensitivity')
 plt.title('Accu')
 plt.legend()
 plt.savefig(args.accu_output)
