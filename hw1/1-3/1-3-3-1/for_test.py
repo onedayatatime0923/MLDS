@@ -49,18 +49,17 @@ for beta in beta_list:
 cnn1=torch.load('weights/64')
 cnn2=torch.load('weights/1024')
 out={}
-beta_list = [0.3,0.5,0.7,0.9,-1,2]
+beta_list = np.linspace(-1,2,100)
+print(beta_list)
 cnn_list=[]
+loss_list=[]
+accu_list=[]
 for beta in beta_list:
     for i in cnn1:
         out[i]=cnn1[i]*beta + cnn2[i]*(1-beta)
-
-    cnn_list.append(CNN().cuda().load_state_dict(out))
-
-for i in cnn_list:
-    dm.val(i,'Val',dm.data['mnist'][1])
-    #dict_params2.clear()
-
-
-
+    cnn_tmp=CNN().cuda()
+    cnn_tmp.load_state_dict(out)
+    loss,accu=dm.val(cnn_tmp,'Val',dm.data['mnist'][1])
+    loss_list.append(loss)
+    accu_list.append(accu)
 
