@@ -10,8 +10,10 @@ assert plt and np
 ############################################################
 dm=Datamanager()
 parser = argparse.ArgumentParser(description='setting module parameter.')
-parser.add_argument('-lo','--loss_output', dest='loss_output',type=str,required=True)
-parser.add_argument('-ao','--accu_output', dest='accu_output',type=str,required=True)
+parser.add_argument('-selo','--sensitive_loss_output', dest='selo',type=str,required=True)
+parser.add_argument('-seao','--sensitive_accu_output', dest='seao',type=str,required=True)
+parser.add_argument('-shlo','--sharpness_loss_output', dest='shlo',type=str,required=True)
+parser.add_argument('-shao','--sharpness_accu_output', dest='shao',type=str,required=True)
 args = parser.parse_args()
 ############################################################
 #               loading data                               #
@@ -26,9 +28,9 @@ ax2 = ax1.twinx()
 ax1.plot(dm.data['train'][:,0],dm.data['train'][:,1],c='b',label='train')
 ax1.plot(dm.data['test'][:,0],dm.data['test'][:,1],c='g',label='test')
 ax2.plot(dm.data['train'][:,0],dm.data['train'][:,3],c='y',label='sensitivity')
-plt.title('Loss')
+plt.title('Loss Sensitivity')
 plt.legend()
-plt.savefig(args.loss_output)
+plt.savefig(args.selo)
 ############################################################
 #               plot accu                                  #
 ############################################################
@@ -37,6 +39,28 @@ ax2 = ax1.twinx()
 ax1.plot(dm.data['train'][:,0],dm.data['train'][:,2],c='b',label='train')
 ax1.plot(dm.data['test'][:,0],dm.data['test'][:,2],c='g',label='test')
 ax2.plot(dm.data['train'][:,0],dm.data['train'][:,3],c='y',label='sensitivity')
-plt.title('Accu')
+plt.title('Accu Sensitivity')
 plt.legend()
-plt.savefig(args.accu_output)
+plt.savefig(args.seao)
+############################################################
+#               plot loss                                  #
+############################################################
+fig, ax1 = plt.subplots()
+ax2 = ax1.twinx()
+ax1.plot(dm.data['train'][:,0],dm.data['train'][:,1],c='b',label='train')
+ax1.plot(dm.data['test'][:,0],dm.data['test'][:,1],c='g',label='test')
+ax2.plot(dm.data['train'][:,0],dm.data['train'][:,4],c='y',label='sharpness')
+plt.title('Loss Sharpness')
+plt.legend()
+plt.savefig(args.shlo)
+############################################################
+#               plot accu                                  #
+############################################################
+fig, ax1 = plt.subplots()
+ax2 = ax1.twinx()
+ax1.plot(dm.data['train'][:,0],dm.data['train'][:,2],c='b',label='train')
+ax1.plot(dm.data['test'][:,0],dm.data['test'][:,2],c='g',label='test')
+ax2.plot(dm.data['train'][:,0],dm.data['train'][:,4],c='y',label='sharpness')
+plt.title('Accu Sharpness')
+plt.legend()
+plt.savefig(args.shao)

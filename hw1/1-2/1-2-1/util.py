@@ -69,7 +69,7 @@ class Datamanager():
             for p in model.parameters():
                 para.extend(list(p.data.cpu().numpy().reshape((-1,))))
         elif args.mode=="first_layer":
-            p=model.parameters()
+            p=list(model.parameters())
             para.extend(list(p[0].data.cpu().numpy().reshape((-1,))))
             para.extend(list(p[1].data.cpu().numpy().reshape((-1,))))
         else: raise ValueError('Wrong mode.')

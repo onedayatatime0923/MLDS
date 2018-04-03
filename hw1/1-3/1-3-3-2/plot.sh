@@ -1,10 +1,7 @@
 
-python3 train.py -b 4 -cr
-python3 train.py -b 8
-python3 train.py -b 16
-python3 train.py -b 32
-python3 train.py -b 64
-python3 train.py -b 128
+python3 train.py -b 50 -cr
+python3 train.py -b 100
+python3 train.py -b 150
 python3 train.py -b 200
 python3 train.py -b 250
 python3 train.py -b 300
@@ -16,4 +13,4 @@ python3 train.py -b 550
 python3 train.py -b 600
 python3 train.py -b 650
 python3 train.py -b 700
-python3 plot.py -lo pic/loss.jpg -ao pic/accu.jpg
+python3 plot.py -selo pic/sensitivity_loss.jpg -seao pic/sensitivity_accu.jpg -shlo pic/sharpness_loss.jpg -shao pic/sharpness_accu.jpg

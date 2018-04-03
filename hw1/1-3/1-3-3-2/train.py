@@ -16,10 +16,8 @@ assert torch and nn and Variable and np
 parser = argparse.ArgumentParser(description='setting module parameter.')
 parser.add_argument('-b','--batch', dest='batch',type=int,required=True)
 parser.add_argument('-cr','--clear_record', dest='clear_record',action='store_true')
-#parser.add_argument('-lo','--loss_output', dest='loss_output',type=str,required=True)
-#parser.add_argument('-ao','--accu_output', dest='accu_output',type=str,required=True)
 args = parser.parse_args()
-EPOCH = 30
+EPOCH = 1
 BATCH_SIZE = args.batch
 print('batch size: {}'.format(BATCH_SIZE))
 ############################################################
@@ -44,8 +42,8 @@ for epoch in range(EPOCH):
     #dm.val(cnn,'Train',dm.data['mnist'][0])
     #dm.val(cnn,'Val',dm.data['mnist'][1])
     print('-'*50)
-train_record=np.array([BATCH_SIZE]+dm.val(cnn,'Train',dm.data['mnist'][0])).reshape((1,4))
-test_record=np.array([BATCH_SIZE]+dm.val(cnn,'Val',dm.data['mnist'][1])).reshape((1,4))
+train_record=np.array([BATCH_SIZE]+dm.val(cnn,'Train',dm.data['mnist'][0])).reshape((1,5))
+test_record=np.array([BATCH_SIZE]+dm.val(cnn,'Val',dm.data['mnist'][1])).reshape((1,5))
 
 
 if not args.clear_record:
