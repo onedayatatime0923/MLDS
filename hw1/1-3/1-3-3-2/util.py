@@ -74,25 +74,29 @@ class Datamanager():
         return total_loss
     def val(self,model,name,valloader):
         model.eval()
+        loss_func = nn.CrossEntropyLoss()
         test_loss = 0
         correct = 0
+        g_total=[torch.zeros_like(i) for i in list(model.parameters())]
         for x, y in valloader:
-            x, y = Variable(x, volatile=True).cuda(), Variable(y,volatile=True).cuda()
+            x, y = Variable(x, volatile=False).cuda(), Variable(y,volatile=False).cuda()
             output = model(x)
-            test_loss += F.cross_entropy(output, y, size_average=False).data[0] # sum up batch loss
+            loss = loss_func(output,y)
+            test_loss += float(loss)
             #print('cross_entropy:',F.cross_entropy(output, y, size_average=False).data.size())
             pred = output.data.max(1,keepdim=True)[1] # get the index of the max log-probability
             #print('max:',output.data.max(1, keepdim=True).size())
             correct += pred.eq(y.data.view_as(pred)).long().cpu().sum()
-            g=torch.autograd.grad(test_loss, model.parameters(), create_graph=True)
-            print(g)
-            input()
+            g=torch.autograd.grad(loss, model.parameters())
+            for i in range(len(g_total)):
+                g_total[i]+=g[i]
 
         test_loss /= len(valloader.dataset)
-        print('{} set: Average loss: {:.4f} | Accuracy: {}/{} ({:.0f}%) | '.format(
+        g_total = sum([grd.norm()**2 for grd in g_total]).data[0]
+        print('{} set: Average loss: {:.4f} | Accuracy: {}/{} ({:.0f}%) | Gradien Norm: {}'.format(
             name,test_loss, correct, len(valloader.dataset),
-            100. * correct / len(valloader.dataset)))
-        return [test_loss,100 * correct / len(valloader.dataset)]
+            100. * correct / len(valloader.dataset),g_total))
+        return [test_loss,100 * correct / len(valloader.dataset),g_total]
     def test(self,model,trainloader):
         model.eval()
         pred_x=[]
