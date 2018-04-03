@@ -21,6 +21,7 @@ parser.add_argument('-cr','--clear_record', dest='clear_record',action='store_tr
 args = parser.parse_args()
 EPOCH = 30
 BATCH_SIZE = args.batch
+print('batch size: {}'.format(BATCH_SIZE))
 ############################################################
 #               reading data                               #
 ############################################################

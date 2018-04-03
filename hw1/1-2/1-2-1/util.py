@@ -40,6 +40,7 @@ class Datamanager():
             loss_func = nn.CrossEntropyLoss()
 
         total_loss=0
+        correct=0
         
         for batch_index, (x, y) in enumerate(trainloader):
             x, y= Variable(x).cuda(), Variable(y).cuda() 
@@ -48,18 +49,23 @@ class Datamanager():
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            pred = output.data.max(1,keepdim=True)[1] # get the index of the max log-probability
+            #print('max:',output.data.max(1, keepdim=True).size())
+            total_loss+= loss.data[0]*len(x) # sum up batch loss
+            correct += pred.eq(y.data.view_as(pred)).long().cpu().sum()
             if batch_index % 4 == 0:
                 print('\rTrain Epoch: {} | [{}/{} ({:.0f}%)]\t |  Loss: {:.6f}'.format(
                         epoch, batch_index * len(x), len(trainloader.dataset),
                         100. * batch_index / len(trainloader), loss.data[0]),end='')
 
-            total_loss+= loss.data[0]*len(x) # sum up batch loss
         elapsed= time.time() - start
         total_loss/= len(trainloader.dataset)
+        accu = 100. * correct / len(trainloader.dataset)
+        print(accu)
         print('\nTime: {}:{}\t | '.format(int(elapsed/60),int(elapsed%60)),end='')
-        print('Total loss: {:.4f}'.format(total_loss))
+        print('Total loss: {:.4f} | Accu: {:.2f}'.format(total_loss,accu))
 
-        para=[]
+        para=[accu]
         for p in model.parameters():
             para.extend(list(p.data.cpu().numpy().reshape((-1,))))
         return np.array(para)
