@@ -1,4 +1,3 @@
-
 import torch
 import torch.nn as nn
 import torch.utils.data as Data
@@ -19,7 +18,7 @@ class Datamanager():
                         transforms.Normalize((0.1307,), (0.3081,))
                         ]))
         #print(train_dataset.train_labels)
-        train_dataset.train_labels=(torch.rand(len(train_dataset))*10).long()
+        #train_dataset.train_labels=(torch.rand(len(train_dataset))*10).long()
         #print((torch.rand(len(train_dataset))*10).long())
         train_loader = torch.utils.data.DataLoader(
                     train_dataset,   
@@ -110,35 +109,46 @@ class CNN(nn.Module):
     def __init__(self):
         super(CNN, self).__init__()
         self.conv1 = nn.Sequential(                 # input shape (1, 28, 28)
-            nn.Conv2d(1, 16, 3, 1, 1),              # output shape (16, 28, 28)
+            nn.Conv2d(1, 64, 3, 1, 1),              # output shape (16, 28, 28)
             nn.ReLU(),
-            nn.AvgPool2d(kernel_size=4),            # output shape (16,  7,  7)
+            nn.AvgPool2d(kernel_size=2),            # output shape (16,  7,  7)
         )
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(64,128, 3, 1, 1),         
+            nn.ReLU(),
+            nn.AvgPool2d(kernel_size=2),            
+        )
+        self.conv3 = nn.Sequential(
+            nn.Conv2d(128,128, 3, 1, 1),         
+            nn.ReLU(),
+            nn.AvgPool2d(kernel_size=2),            
+        )
+        
         self.den1= nn.Sequential(
-            nn.Linear(16*7*7, 2048),
+            nn.Linear(128*3*3, 1024),
             nn.ReLU(),
         )
+    
         self.den2= nn.Sequential(
-            nn.Linear(2048,2048),
+            nn.Linear(1024,1024),
             nn.ReLU(),
         )
         self.den3= nn.Sequential(
-            nn.Linear(2048,2048),
+            nn.Linear(1024,512),
             nn.ReLU(),
         )
         self.den4= nn.Sequential(
-            nn.Linear(2048,2048),
+            nn.Linear(512,10),
             nn.ReLU(),
         )
-        self.den5= nn.Sequential(
-            nn.Linear(2048, 10),
-        ) 
+        
     def forward(self, x):
         x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.conv3(x)
         x = x.view(x.size(0), -1)
         x= self.den1(x)
         x= self.den2(x)
         x= self.den3(x)
         x= self.den4(x)
-        x= self.den5(x)
         return x 
