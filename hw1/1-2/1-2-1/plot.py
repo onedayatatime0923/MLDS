@@ -24,7 +24,7 @@ dm.pca_construct(para_total,2)
 for i in range(len(args.input)):
     data=dm.pca_transform(dm.data['para{}'.format(i)][:,1:])
     for j in range(len(data)):
-        text=dm.data['para'+str(i)][i:0]
+        text=dm.data['para'+str(i)][j:0]
         plt.text(data[j][0], data[j][1], text,fontdict={'size': 10, 'color': color[i]}) 
 
 plt.xlim(-6, 10)
