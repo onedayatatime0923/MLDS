@@ -12,7 +12,7 @@ assert torch and nn and Variable and np
 #               setting option                             #
 ############################################################
 
-EPOCH = 1
+EPOCH = 30
 BATCH_SIZE =512*4
 
 parser = argparse.ArgumentParser(description='setting module parameter.')
