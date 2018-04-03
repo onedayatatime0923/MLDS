@@ -17,6 +17,7 @@ BATCH_SIZE = 1024*2
 
 parser = argparse.ArgumentParser(description='setting module parameter.')
 parser.add_argument('-u','--unit', dest='unit',nargs='+',type=int,required=True)
+parser.add_argument('-m','--mode', dest='mode',type=str,required=True)
 parser.add_argument('-po','--p_output', dest='p_output',type=str,required=True)
 args = parser.parse_args()
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -37,7 +38,7 @@ print('total parameters: {}'.format(dm.count_parameters(dnn)))
 # training and testing
 parameter_list=[]
 for epoch in range(EPOCH):
-    p=dm.train(dnn,dm.data['train'][0],epoch,'cross_entropy')
+    p=dm.train(dnn,dm.data['train'][0],epoch,'cross_entropy',args)
     print('-'*50)
     if epoch%3==0: parameter_list.append(p)
 print(np.array(parameter_list).shape)

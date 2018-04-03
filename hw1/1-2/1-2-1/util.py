@@ -29,7 +29,7 @@ class Datamanager():
                         ])),
                     batch_size=b_size, shuffle=True)
         self.data[name]=[train_loader,test_loader]
-    def train(self,model,trainloader,epoch,loss):
+    def train(self,model,trainloader,epoch,loss,args):
         start= time.time()
 
         model.train()
@@ -61,13 +61,19 @@ class Datamanager():
         elapsed= time.time() - start
         total_loss/= len(trainloader.dataset)
         accu = 100. * correct / len(trainloader.dataset)
-        print(accu)
         print('\nTime: {}:{}\t | '.format(int(elapsed/60),int(elapsed%60)),end='')
         print('Total loss: {:.4f} | Accu: {:.2f}'.format(total_loss,accu))
 
         para=[accu]
-        for p in model.parameters():
-            para.extend(list(p.data.cpu().numpy().reshape((-1,))))
+        if args.mode=="all_layer":
+            for p in model.parameters():
+                para.extend(list(p.data.cpu().numpy().reshape((-1,))))
+        elif args.mode=="first_layer":
+            p=model.parameters()
+            para.extend(list(p[0].data.cpu().numpy().reshape((-1,))))
+            para.extend(list(p[1].data.cpu().numpy().reshape((-1,))))
+        else: raise ValueError('Wrong mode.')
+
         return np.array(para)
     def count_parameters(self,model):
         return sum(p.numel() for p in model.parameters() if p.requires_grad)

@@ -2,7 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.utils.data as Data
-from torch.autograd import Variable
+from torch.autograd import Variable, grad
 import torch.nn.functional as F
 from torchvision import datasets, transforms
 import time
@@ -71,7 +71,7 @@ class Datamanager():
             output = model(x)
             loss = loss_func(output,y)
             optimizer.zero_grad()
-            loss.backward()
+            loss.backward(retain_graph=True)
             optimizer.step()
             if batch_index % 4 == 0:
                 print('\rTrain Epoch: {} | [{}/{} ({:.0f}%)]\t |  Loss: {:.6f}'.format(
@@ -107,6 +107,19 @@ class Datamanager():
             test_loss, correct, len(valloader.dataset),
             100. * correct / len(valloader.dataset),gradient))
         return test_loss,gradient
+    def Hessian(self,l,var):
+        g=[i.view(-1) for i in grad(l,var,retain_graph=True,create_graph= True)]
+        g=torch.cat(g)
+        h=[]
+        for i in range(len(g)):
+            e=torch.zeros(len(g)).cuda()
+            e[i]=1
+            e=Variable(e,requires_grad=True)
+            t=[i.contiguous().view(-1) for i in grad(g.dot(e),var,retain_graph=True,create_graph= True)]
+            t=torch.cat(t).view(1,-1)
+            h.append(t)
+        h=torch.cat(h,0)
+        return (h)
     def test(self,model,trainloader):
         model.eval()
         pred_x=[]
