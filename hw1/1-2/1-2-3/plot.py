@@ -7,12 +7,13 @@ dm=Datamanager()
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '''''''''''''''''''''       plot norm                                '''
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-dm.load_np('norm','test_norm_300epochs.npy') 
+dm.load_np('norm','sinc_norm.npy') 
 print(dm.data['norm'].shape)
 print(dm.data['norm'])
 
-x=np.linspace(1,250,250)
+x=np.linspace(1,670,670)
 plt.figure()
 plt.plot(x,dm.data['norm'],'r',label='norm ') 
 plt.legend()
 plt.savefig('norm.png')
+

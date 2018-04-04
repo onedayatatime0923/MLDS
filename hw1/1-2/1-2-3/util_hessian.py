@@ -8,13 +8,44 @@ from torchvision import datasets, transforms
 import time
 import numpy as np
 from torch.autograd import grad
+from numpy.linalg import svd, eigh
 assert F
+
+
+def HessianJacobian(loss, parameters):
+    params = [p for p in parameters]
+    J, H = [], []
+    for p in params:
+        g, = torch.autograd.grad(loss, p , create_graph=True)
+        sz = list(g.size())
+        if len(sz) == 2:
+            for i in range(sz[0]):
+                for j in range(sz[1]):
+                    J.append(g[i, j])
+        else:
+            for i in range(sz[0]):
+                J.append(g[i])
+    
+    for i, g in enumerate(J):
+        H.append([])
+        for p in params:
+            g2, = torch.autograd.grad(g, p, create_graph=True)
+            sz = list(g2.size())
+            if len(sz) == 2:
+                for j in range(sz[0]):
+                    for k in range(sz[1]):
+                        H[i].append(g2[j, k].cpu().data.numpy()[0])
+            else:
+                for j in range(sz[0]):
+                    H[i].append(g2[j].cpu().data.numpy()[0])
+    J = [i.cpu().data.numpy()[0] for i in J]
+    return np.array(H), np.array(J)	        
 
 class Datamanager():
     def __init__(self):
         self.data={}
     def get_data(self,name,b_size,shuf=True):
-        X=np.linspace(-5,5,30000).reshape((-1,1))
+        X=np.linspace(-5,5,128).reshape((-1,1))
         Y=np.exp(np.sinc(5*X))
         X,Y=torch.from_numpy(X).double().cuda(),torch.from_numpy(Y).double().cuda()
         train_dataset = Data.TensorDataset(data_tensor=X[:], target_tensor=Y[:]) 
@@ -51,7 +82,7 @@ class Datamanager():
         self.data[name]=[train_loader,test_loader]
     def load_np(self,name,path):
         self.data[name]=np.load(path)
-        
+
 
     def train(self,model,trainloader,epoch,loss):
         start= time.time()
@@ -65,49 +96,73 @@ class Datamanager():
 
         total_loss = 0
         norm = 0
-        if(epoch<30): print('minimize loss')
+        min_ratio = 0 
+
+        if(epoch<10000): print('minimize loss')
         else: print('minimize gradient norm')
         for batch_index, (x, y) in enumerate(trainloader):
+            print('index=',batch_index)
             x, y= Variable(x).cuda(), Variable(y).cuda()
             output = model(x)
-            if(epoch<30):
-                
+            if(epoch<10000):
                 loss = loss_func(output,y)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-                #for x in model.parameters():
-                    #print('\ngrad: {} , type= {}\n'.format(x.grad,type(x.grad)))
-                #input()
-                    
             else:
                 loss = loss_func(output,y)
-                loss_grads = grad(loss, model.parameters(),create_graph=True)
-                #print(loss_grads)
-                #print(type(loss_grads))
-               
+                loss_grads = grad(loss, model.parameters(),retain_graph=True,create_graph=True)
                 gn2 = sum([grd.norm()**2 for grd in loss_grads])
-                norm = gn2.cpu().data
-                #print('\nnorm:{} type: {}\n'.format(norm,type(norm)))
+                norm = gn2.cpu().data.sqrt()
                 optimizer.zero_grad()
-                gn2.backward()
+                gn2.backward(retain_graph=True)
                 optimizer.step()
-                #print('\rTrain epoch: {}  , norm = {} '.format(epoch,norm))
-                #return norm
+                """
+                #h , j = HessianJacobian(gn2, model.parameters()) 
+                input_grad = loss_grads
+                #par_num = sum(p.numel() for p in model.parameters() if p.requires_grad)
+                par = model.parameters()
+                print('input_grad : ',input_grad)
+                hessian = []
+                print(len(input_grad))
+                for i in range(len(input_grad)):
+                    print('i=',i)
+                    print(len(input_grad[i]))
+                    a = input_grad[i].view(-1,1)
+                    for j in range(a.shape[0]):
+                        print('j=',j) 
+                        print('a=',a[j])
+                        h = grad( a[j] , par , retain_graph=True , create_graph=True )
+                        print(h)
+                        hessian.append(h)
+                """
             if batch_index % 4 == 0 :
                 print('\rTrain Epoch: {} | [{}/{} ({:.0f}%)]\t |  Loss: {:.6f}'.format(
                         epoch, batch_index * len(x), len(trainloader.dataset),
                         100. * batch_index / len(trainloader), loss.data[0]),end='')
-
+            if epoch>=10000 : print('\nnorm = {} \n'.format(norm))
             total_loss+= loss.data[0]*len(x) # sum up batch loss
-
+        if(epoch==20000):
+            h , j = HessianJacobian(loss_func(output,y) , model.parameters())  
+            print('\nhessian matrix: {}\n shape: {}\n'.format(h,h.shape))
+            mean  = h.mean(axis = 0)
+            arr_train = h - mean
+            val_train , U_train = eigh(np.cov(arr_train.T))
+            eigen_value = list(val_train)
+            print(eigen_value)
+            count = 0
+            for x in eigen_value:
+                if x > 0 : count+=1
+            min_ratio = float(count/len(eigen_value))
+            print('\nMinimal ratio = {} \n'.format(min_ratio))
+ 
         elapsed= time.time() - start
         total_loss/= len(trainloader.dataset)
 
         print('\nTime: {}:{}\t | '.format(int(elapsed/60),int(elapsed%60)),end='')
         print('Total loss: {:.4f}'.format(total_loss))
-        if(epoch<30): return total_loss
-        else: return norm
+        return total_loss , norm , min_ratio
+        
     def val(self,model,valloader,epoch):
         model.eval()
         test_loss = 0
