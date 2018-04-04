@@ -1,9 +1,9 @@
 
-from util import Datamanager,DNN
+from util import Datamanager
 import matplotlib.pyplot as plt
 import numpy as np
 import argparse
-assert DNN and plt and np
+assert plt and np
 
 dm=Datamanager()
 parser = argparse.ArgumentParser(description='setting module parameter.')
@@ -31,5 +31,5 @@ plt.xlim(-10, 10)
 plt.ylim(-10, 10)
 plt.title(args.mode)
 
-#plt.show()
-plt.savefig(args.output)
+plt.show()
+#plt.savefig(args.output)
