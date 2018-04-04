@@ -11,7 +11,7 @@ assert torch and nn and Variable
 '''''''''''''''''''''       setting option                           '''
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-EPOCH = 500
+EPOCH = 100
 BATCH_SIZE =512
 
 parser = argparse.ArgumentParser(description='setting module parameter.')
@@ -39,7 +39,7 @@ loss_list=[]
 accu_list=[]
 for epoch in range(EPOCH):
     dm.train(cnn,dm.data['train'][0],epoch,'cross_entropy')
-    loss,accu=dm.val(cnn,dm.data['train'][1],epoch)
+    loss,accu=dm.val(cnn,dm.data['train'][0],epoch)
     print('-'*50)
     loss_list.append(loss)
     accu_list.append(accu)

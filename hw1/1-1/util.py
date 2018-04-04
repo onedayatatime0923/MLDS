@@ -24,14 +24,14 @@ class Datamanager():
         self.data[name]=Data.DataLoader(dataset=train_dataset, batch_size=b_size, shuffle=shuf)
     def get_Mnist(self,name,b_size):
         train_loader = torch.utils.data.DataLoader(
-                datasets.MNIST('data', train=True, download=True,
+                datasets.MNIST('../../dataset', train=True, download=True,
                     transform=transforms.Compose([
                         transforms.ToTensor(),
                         transforms.Normalize((0.1307,), (0.3081,))
                         ])),
                     batch_size=b_size, shuffle=True)
         test_loader = torch.utils.data.DataLoader(
-                datasets.MNIST('data', train=False, transform=transforms.Compose([
+                datasets.MNIST('../../dataset', train=False, download=True, transform=transforms.Compose([
                         transforms.ToTensor(),
                         transforms.Normalize((0.1307,), (0.3081,))
                         ])),
@@ -39,14 +39,14 @@ class Datamanager():
         self.data[name]=[train_loader,test_loader]
     def get_CIFAR10(self,name,b_size):
         train_loader = torch.utils.data.DataLoader(
-                datasets.CIFAR10('data', train=True, download=True,
+                datasets.CIFAR10('../../dataset', train=True, download=True,
                     transform=transforms.Compose([
                         transforms.ToTensor(),
                         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
                         ])),
                     batch_size=b_size, shuffle=True)
         test_loader = torch.utils.data.DataLoader(
-                datasets.CIFAR10('data', train=False, transform=transforms.Compose([
+                datasets.CIFAR10('../../dataset', train=False, transform=transforms.Compose([
                         transforms.ToTensor(),
                         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
                         ])),
@@ -207,67 +207,72 @@ class CNN(nn.Module):
                 nn.Linear( 32, 10),
             ) 
         elif mode=='cifar_deep':
-            self.conv1 = nn.Sequential(                 # input shape (3, 32, 32)
+            self.conv1 = nn.Sequential(                 # input shape (1, 32, 32)
                 nn.Conv2d(3, 8, 5, 1, 2),              # output shape (3, 32, 32)
                 nn.ReLU(),
-                nn.AvgPool2d(kernel_size=2),            # output shape (5, 16, 16)
+                nn.AvgPool2d(kernel_size=2),            # output shape (5, 32, 32)
             )
             self.conv2 = nn.Sequential(
-                nn.Conv2d( 8,  8, 5, 1, 2),              # output shape (5, 16, 16)
+                nn.Conv2d( 8,  8, 5, 1, 2),              # output shape (5, 32, 32)
                 nn.ReLU(),
-                nn.AvgPool2d(kernel_size=2),            # output shape ( 5, 8, 8)
+                nn.AvgPool2d(kernel_size=2),            # output shape ( 5,16,16)
             )
             self.conv3 = nn.Sequential(
-                nn.Conv2d( 8,  8, 5, 1, 2),              # output shape ( 5, 8, 8)
+                nn.Conv2d( 8,  8, 3, 1, 1),              # output shape ( 5,16,16)
                 nn.ReLU(),
-                nn.AvgPool2d(kernel_size=2),            # output shape ( 5, 4, 4)
+                nn.AvgPool2d(kernel_size=2),            # output shape ( 5, 2, 2)
             )
             self.den1= nn.Sequential(
-                nn.Linear(8* 4 *4,  128),
+                nn.Linear(8* 4 *4,  256),
                 nn.ReLU(),
             )
             self.den2= nn.Sequential(
-                nn.Linear(128, 128),
+                nn.Linear( 256,  256),
                 nn.ReLU(),
             )
             self.den3= nn.Sequential(
-                nn.Linear(128, 10),
-            )
-            '''
-            self.conv1 = nn.Sequential(                 # input shape (3, 32, 32)
-                nn.Conv2d(3, 8, 5, 1, 2),              # output shape (8, 32, 32)
-                nn.ReLU(),
-                nn.AvgPool2d(kernel_size=2),            # output shape (8, 16, 16)
-            )
-            self.conv2 = nn.Sequential(                 # input shape (8, 16, 16)
-                nn.Conv2d(8, 16, 5, 1, 2),              # output shape (16, 16, 16)
-                nn.ReLU(),
-                nn.AvgPool2d(kernel_size=2),            # output shape (16, 8, 8)
-            )
-            self.conv3 = nn.Sequential(                 # input shape (16, 8, 8)
-                nn.Conv2d(16, 32, 3, 1, 1),              # output shape (32, 8, 8)
-                nn.ReLU(),
-                nn.AvgPool2d(kernel_size=2),            # output shape (32, 4, 4)
-            )
-            self.conv4 = nn.Sequential(                 # input shape (32, 4, 4)
-                nn.Conv2d(32, 64, 3, 1, 1),              # output shape (64, 4, 4)
-                nn.ReLU(),
-                #nn.AvgPool2d(kernel_size=2),            # output shape (5, 2, 2)
-            )
-            self.den1= nn.Sequential(
-                nn.Linear(64* 4 *4, 512),
-                nn.ReLU(),
-            )
-            self.den2= nn.Sequential(
-                nn.Linear(512, 128),
-            )
-            self.den3= nn.Sequential(
-                nn.Linear(128, 48),
-            )        
-            self.den4= nn.Sequential(
-                nn.Linear(48, 10),
+                nn.Linear( 256, 10),
             ) 
-            '''
+        elif mode=='cifar_medium':
+            self.conv1 = nn.Sequential(                 # input shape (3, 32, 32)
+                nn.Conv2d(3, 10, 5, 1, 2),              # output shape (2, 32, 32)
+                nn.ReLU(),
+                nn.AvgPool2d(kernel_size=4),            # output shape (2, 16, 16)
+            )
+            self.conv2 = nn.Sequential(
+                nn.Conv2d( 10,  8, 5, 1, 2),              # output shape (4, 16, 16)
+                nn.ReLU(),
+                nn.AvgPool2d(kernel_size=2),            # output shape ( 4, 4, 4)
+            )
+            self.den1= nn.Sequential(
+                nn.Linear(8* 4 *4,  256),
+                nn.ReLU(),
+            )
+            self.den2= nn.Sequential(
+                nn.Linear( 256,  256),
+                nn.ReLU(),
+            )
+            self.den3= nn.Sequential(
+                nn.Linear( 256, 10),
+            ) 
+        elif mode=='cifar_shallow':
+            self.conv1 = nn.Sequential(                 # input shape (3, 32, 32)
+                nn.Conv2d(3, 15, 5, 1, 2),              # output shape (4, 32, 32)
+                nn.ReLU(),
+                nn.AvgPool2d(kernel_size=9),            # output shape (5,  4,  4)
+            )
+            self.den1= nn.Sequential(
+                nn.Linear(15* 3 *3,  256),
+                nn.ReLU(),
+            )
+            self.den2= nn.Sequential(
+                nn.Linear( 256,  256),
+                nn.ReLU(),
+            )
+            self.den3= nn.Sequential(
+                nn.Linear( 256, 10),
+            ) 
+        else: raise ValueError('Wrong mode.')
     def forward(self, x):
         if self.mode=='mnist_deep':
             x = self.conv1(x)
@@ -298,4 +303,18 @@ class CNN(nn.Module):
             x= self.den1(x)
             x= self.den2(x)
             x= self.den3(x)
+        elif self.mode=='cifar_medium':
+            x = self.conv1(x)
+            x = self.conv2(x)
+            x = x.view(x.size(0), -1)
+            x= self.den1(x)
+            x= self.den2(x)
+            x= self.den3(x)
+        elif self.mode=='cifar_shallow':
+            x = self.conv1(x)
+            x = x.view(x.size(0), -1)
+            x= self.den1(x)
+            x= self.den2(x)
+            x= self.den3(x)
+        else: raise ValueError('Wrong mode.')
         return x 

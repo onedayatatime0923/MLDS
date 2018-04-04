@@ -67,7 +67,7 @@ class Datamanager():
         total_loss=0
         
         for batch_index, (x, y) in enumerate(trainloader):
-            x, y= Variable(x).cuda(), Variable(y).cuda() 
+            x, y= Variable(x,).cuda(), Variable(y).cuda() 
             output = model(x)
             loss = loss_func(output,y)
             optimizer.zero_grad()
@@ -86,27 +86,31 @@ class Datamanager():
         return total_loss
     def val(self,model,valloader,epoch):
         model.eval()
+        loss_func = nn.CrossEntropyLoss(size_average=False)
         test_loss = 0
         correct = 0
+        g_total=[torch.zeros_like(i) for i in list(model.parameters())]
         for x, y in valloader:
-            x, y = Variable(x, volatile=True).cuda(), Variable(y,volatile=True).cuda()
+            x, y = Variable(x).cuda(), Variable(y).cuda()
             output = model(x)
-            test_loss += F.cross_entropy(output, y, size_average=False).data[0] # sum up batch loss
-            #print('cross_entropy:',F.cross_entropy(output, y, size_average=False).data.size())
+            # loss
+            loss = loss_func(output, y)
+            test_loss += float(loss)
+            # accu
             pred = output.data.max(1,keepdim=True)[1] # get the index of the max log-probability
-            #print('max:',output.data.max(1, keepdim=True).size())
             correct += pred.eq(y.data.view_as(pred)).long().cpu().sum()
+            # grad
+            g=torch.autograd.grad(loss, model.parameters(),retain_graph=True)
+            for i in range(len(g_total)):
+                g_total[i]+=g[i]
+
+
         test_loss /= len(valloader.dataset)
-
-        gradient=0.0
-        for p in model.parameters():
-            if p.grad is not None:grad=(p.grad.cpu().data.numpy() ** 2).sum()
-            gradient+=grad
-
+        g_total = (sum([grd.norm()**2 for grd in g_total]).data[0])**(1/2)/ len(valloader.dataset)
         print('Val set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%), grad={:.4f}'.format(
             test_loss, correct, len(valloader.dataset),
-            100. * correct / len(valloader.dataset),gradient))
-        return test_loss,gradient
+            100. * correct / len(valloader.dataset),g_total))
+        return test_loss, g_total
     def Hessian(self,l,var):
         g=[i.view(-1) for i in grad(l,var,retain_graph=True,create_graph= True)]
         g=torch.cat(g)

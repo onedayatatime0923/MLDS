@@ -12,5 +12,4 @@ python3 train.py -b 500
 python3 train.py -b 550
 python3 train.py -b 600
 python3 train.py -b 650
-python3 train.py -b 700
 python3 plot.py -selo pic/sensitivity_loss.jpg -seao pic/sensitivity_accu.jpg -shlo pic/sharpness_loss.jpg -shao pic/sharpness_accu.jpg

@@ -17,7 +17,7 @@ parser = argparse.ArgumentParser(description='setting module parameter.')
 parser.add_argument('-b','--batch', dest='batch',type=int,required=True)
 parser.add_argument('-cr','--clear_record', dest='clear_record',action='store_true')
 args = parser.parse_args()
-EPOCH = 1
+EPOCH = 80
 BATCH_SIZE = args.batch
 print('batch size: {}'.format(BATCH_SIZE))
 ############################################################
