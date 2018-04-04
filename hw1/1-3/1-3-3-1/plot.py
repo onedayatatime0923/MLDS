@@ -3,7 +3,7 @@ from util import Datamanager
 import matplotlib.pyplot as plt
 import numpy as np
 import argparse
-assert plt and np
+assert plt and np and argparse
 
 ############################################################
 #               setting option                             #
