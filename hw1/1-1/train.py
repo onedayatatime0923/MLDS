@@ -6,7 +6,7 @@ import argparse
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '''''''''''''''''''''       setting option                           '''
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-EPOCH = 1000
+EPOCH = 200
 BATCH_SIZE = 2048 
 parser = argparse.ArgumentParser(description='setting module parameter.')
 parser.add_argument('-f','--func', dest='func',type=int,required=True)
