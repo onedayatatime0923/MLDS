@@ -9,10 +9,7 @@ assert plt and np
 #               setting option                             #
 ############################################################
 dm=Datamanager()
-#parser = argparse.ArgumentParser(description='setting module parameter.')
-#parser.add_argument('-lo','--loss_output', dest='loss_output',type=str,required=True)
-#parser.add_argument('-ao','--accu_output', dest='accu_output',type=str,required=True)
-#args = parser.parse_args()
+
 ############################################################
 #               loading data                               #
 ############################################################
@@ -24,25 +21,25 @@ dm.load_np('test','record/val.npy')
 ############################################################
 fig, ax1 = plt.subplots()
 x = np.linspace(-1,2,300)
-ax1.plot(x, np.log(dm.data['train'][:,0]), 'b-', label='train')
-ax1.plot(x, np.log(dm.data['test'][:,0]), 'b-', linewidth=1.0, linestyle='--', label='test')
-ax1.set_xlabel('beta')
+ax1.plot(x, np.log(dm.data['train'][:,0]), 'b-', label='train_loss')
+ax1.plot(x, np.log(dm.data['test'][:,0]), 'b-', linewidth=1.0, linestyle='--', label='test_loss')
+ax1.set_xlabel('interpolation ratio')
 #plt.plot(x,dm.data['lost'],'b',label='lost')
 #plt.plot(x,dm.data['accu'],'g',label='accu')
-ax1.set_ylabel('lost', color='b')
+ax1.set_ylabel('cross_entropy(log scale)', color='b')
 ax1.tick_params('y', colors='b')
 ax2 = ax1.twinx()
-ax2.plot(x,dm.data['train'][:,1], 'r', label='train')
-ax2.plot(x,dm.data['test'][:,1], 'r', linewidth=1.0, linestyle='--', label='test')
+ax2.plot(x,dm.data['train'][:,1], 'r', label='train_acc')
+ax2.plot(x,dm.data['test'][:,1], 'r', linewidth=1.0, linestyle='--', label='test_acc')
 
-ax2.set_ylabel('accu', color='r')
+ax2.set_ylabel('accuracy', color='r')
 ax2.tick_params('y', colors='r')
 
 fig.tight_layout()
-plt.legend(loc='upper right')
+#plt.legend(loc='upper right')
+ax1.legend(loc='upper left')
+ax2.legend(loc='upper right')
 #plt.show()
 plt.savefig('beta.png')
-############################################################
-#               plot loss                                  #
-############################################################
+
 
