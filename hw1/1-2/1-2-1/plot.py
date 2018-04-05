@@ -31,5 +31,5 @@ plt.xlim(-10, 10)
 plt.ylim(-10, 10)
 plt.title(args.mode)
 
-plt.show()
-#plt.savefig(args.output)
+#plt.show()
+plt.savefig(args.output)
