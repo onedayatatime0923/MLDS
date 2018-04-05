@@ -139,22 +139,12 @@ class DNN(nn.Module):
             nn.ReLU(),
         ))
         self.den3=( nn.Sequential(
-            nn.Linear(10, 10),
-            nn.ReLU(),
-        ))
-        self.den4=( nn.Sequential(
-            nn.Linear(10, 10),
-            nn.ReLU(),
-        ))
-        self.den5=( nn.Sequential(
             nn.Linear(10, 1),
         ))
     def forward(self, x):
         x = self.den1(x)
         x = self.den2(x)
         x = self.den3(x)
-        x = self.den4(x)
-        x = self.den5(x)
         return x 
     def save(self,path):
         torch.save(self.state_dict(), path)

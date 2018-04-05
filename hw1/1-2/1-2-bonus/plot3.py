@@ -25,7 +25,7 @@ print(dm.count_parameters(dnn_end))
 
 dnn=dm.interpolation(dnn_initial,dnn_end,DNN().cuda(),0.5) 
 
-x=torch.linspace(0,1,10000)
+x=torch.linspace(0,1,50000)
 loss=[]
 for i in range(len(x)):
     print('\rprocessing...{}'.format(i),end='')
