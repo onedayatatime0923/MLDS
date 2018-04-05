@@ -1,4 +1,4 @@
-It is the Readme file of MLDSspring HW1 
+It is the Readme file of MLDS_spring HW1 
 ## Requirements
 
 - Python 3
