@@ -6,10 +6,10 @@ It is the Readme file of MLDSspring HW1
 - Numpy
 - Matplotlib
 
-## Training
+## Instruction of running our code
 
 
-```bash
+```
 ./train.py --help
 ```
 
