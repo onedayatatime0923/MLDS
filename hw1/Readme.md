@@ -35,6 +35,7 @@ It is the Readme file of MLDS_spring HW1
 
 1-2-3
 ```
+cd 1-2/1-2-3
 python test.py
 python look.py
 ```
