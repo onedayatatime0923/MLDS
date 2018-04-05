@@ -44,7 +44,7 @@ cd 1-2/1-2-3
 python test.py
 python look.py
 ```
-
+the picture will be hw1/1-2/1-2-3/1-2-3_result.png
 1-3-1
 ```
 cd hw1/1-3/1-3-1/
