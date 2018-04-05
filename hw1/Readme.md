@@ -62,10 +62,15 @@ bash plot.sh
 ```
 the picture will be ploted and placed in  hw1/1-3/1-3-2/pic
 
-
-1-3-3
+1-3-3-1
 ```
+cd 1-3/1-3-3-1/
+bash plot.sh
+```
+the picture will be ploted and placed in  hw1/1-3/1-3-3-1/pic
 
+1-3-3-2
+```
 cd 1-3/1-3-3-2/
 bash plot.sh
 ```

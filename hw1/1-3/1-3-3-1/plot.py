@@ -40,6 +40,6 @@ fig.tight_layout()
 ax1.legend(loc='upper left')
 ax2.legend(loc='upper right')
 #plt.show()
-plt.savefig('beta.png')
+plt.savefig('pic/interpolation.png')
 
 
