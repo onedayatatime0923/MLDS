@@ -13,7 +13,7 @@ parser.add_argument('-m','--model', dest='model',type=str,required=True)
 parser.add_argument('-o','--output', dest='output',type=str,required=True)
 args = parser.parse_args()
 batch_size=1024
-color=['C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9']
+color=['C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9','b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
 ########################################################################
 #                     bonus 2                                          #
 ########################################################################
@@ -26,7 +26,7 @@ print(y)
 
 plt.figure()
 for i in range(len(y)):
-    plt.plot(epsilon.numpy(),y[i].numpy(),c=color[i%10])
+    plt.plot(epsilon.numpy(),y[i].numpy(),c=color[i%len(color)])
 plt.title('Loss')
 plt.xlabel('epsilon')
 plt.ylabel('loss')
