@@ -1,7 +1,7 @@
 It is the Readme file of MLDS_spring HW1 
 ## Requirements
 
-- Python 3
+- Python 3.6
 - Pytorch 0.3
 - Numpy
 - Matplotlib
