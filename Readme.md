@@ -6,7 +6,7 @@ It is the Readme file of MLDSspring HW1
 - Numpy
 - Matplotlib
 
-## Instruction of running our code
+## Instruction to run our code
 
 1-1-1
 ```
@@ -35,7 +35,8 @@ It is the Readme file of MLDSspring HW1
 
 1-2-3
 ```
-
+python test.py
+python look.py
 ```
 
 1-3-1
