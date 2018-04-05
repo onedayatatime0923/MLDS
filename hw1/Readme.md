@@ -1,7 +1,7 @@
 It is the Readme file of MLDS_spring HW1 
 ## Requirements
 
-- Python 3
+- Python 3.6
 - Pytorch 0.3
 - Numpy
 - Matplotlib
@@ -45,6 +45,8 @@ python test.py
 python look.py
 ```
 the picture will be hw1/1-2/1-2-3/1-2-3_result.png
+
+
 1-3-1
 ```
 cd 1-3/1-3-1/
