@@ -20,7 +20,7 @@ color=['C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9']
 dm.get_data('train',batch_size)
 dnn= DNN().cuda()
 dnn.load(args.model)
-epsilon=torch.linspace(-0.01,0.01,20)
+epsilon=torch.linspace(-0.1,0.1,21)
 y=dm.small_range_loss(dnn,epsilon)
 print(y)
 

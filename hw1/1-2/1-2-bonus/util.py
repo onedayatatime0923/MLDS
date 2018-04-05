@@ -106,10 +106,10 @@ class Datamanager():
                     loss=[]
                     print('\rprocessing...parameters {}'.format(c),end='')
                     for e in epsilon:
-                        tmp=state.copy()
-                        tmp[i][j]=state[i][j]+e
-                        dnn.load_state_dict(tmp)
+                        state[i][j]+=e
+                        dnn.load_state_dict(state)
                         loss.append(self.val(dnn,self.data['train'],verbose=False))
+                        state[i][j]-=e
                     output.append(torch.FloatTensor(loss).view(1,-1))
                     c+=1
                 else:
@@ -117,10 +117,10 @@ class Datamanager():
                         loss=[]
                         print('\rprocessing...parameters {}'.format(c),end='')
                         for e in epsilon:
-                            tmp=state.copy()
-                            tmp[i][j,k]=state[i][j,k]+e
-                            dnn.load_state_dict(tmp)
+                            state[i][j]+=e
+                            dnn.load_state_dict(state)
                             loss.append(self.val(dnn,self.data['train'],verbose=False))
+                            state[i][j]-=e
                         output.append(torch.FloatTensor(loss).view(1,-1))
                         c+=1
         print()
