@@ -156,7 +156,8 @@ class Datamanager:
             if int(target[i])!= self.voc.word2index["PAD"]:
                 c+=1
                 l+=criterion(output[i].view(1,-1),target[i])
-        return l/c
+        if c==0: return 0
+        else : return l/c
     def timeSince(self,since, percent):
         now = time.time()
         s = now - since
