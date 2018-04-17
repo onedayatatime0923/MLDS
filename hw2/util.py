@@ -11,7 +11,7 @@ import json
 import random
 import time
 import math
-assert os and np and F
+assert os and np and F and math
 
 use_cuda=True
 MAX_LENGTH=0
@@ -231,7 +231,7 @@ class VideoDataset(Dataset):
         self.index=index
     def __getitem__(self, i):
         x=self.feats[self.index[i][0]]
-        y=self.captions[self.index[i][0]][1]
+        y=self.captions[self.index[i][0]][self.index[i][1]]
         return x,y
     def __len__(self):
         return len(self.index)
