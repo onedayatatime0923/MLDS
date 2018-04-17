@@ -115,13 +115,13 @@ class Datamanager:
         loss.backward()
         encoder_optimizer.step()
         decoder_optimizer.step()
-        return loss.data[0]/ self.max_length
+        return loss.data[0]/ (self.max_length)
     def trainIters(self,encoder, decoder, name, n_epochs, learning_rate=0.001, print_every=2, plot_every=100):
         plot_losses = []
 
         encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
         decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
-        criterion = nn.CrossEntropyLoss()
+        criterion = nn.CrossEntropyLoss(size_average=False)
         for epoch in range(1, n_epochs+ 1):
             start = time.time()
             loss_total=0
@@ -151,11 +151,12 @@ class Datamanager:
             print('-'*60)
         return plot_losses
     def loss(self,criterion,output,target):
-        l=0
+        l, c=0, 0
         for i in range(len(target)):
             if int(target[i])!= self.voc.word2index["PAD"]:
+                c+=1
                 l+=criterion(output[i].view(1,-1),target[i])
-        return l
+        return l/c
     def timeSince(self,since, percent):
         now = time.time()
         s = now - since
