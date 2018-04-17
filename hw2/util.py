@@ -78,7 +78,7 @@ class Datamanager:
             indexes.append(index)
         indexes = torch.LongTensor(indexes)
         return indexes
-    def train(self,input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, teacher_forcing_ratio=1):
+    def train(self,input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, teacher_forcing_ratio=0.7):
         encoder_optimizer.zero_grad()
         decoder_optimizer.zero_grad()
 
@@ -99,7 +99,7 @@ class Datamanager:
                     decoder_input, decoder_hidden, encoder_outputs)
                 decoder_input=torch.index_select(target_variable, 1, Variable(torch.LongTensor([di])).cuda())
                 target=decoder_input.view(-1)
-                loss += criterion(decoder_output, target)
+                loss += self.loss(criterion,decoder_output, target)
 
         else:
             # Without teacher forcing: use its own predictions as the next input
@@ -107,9 +107,10 @@ class Datamanager:
                 decoder_output, decoder_hidden = decoder(
                     decoder_input, decoder_hidden, encoder_outputs)
                 ni = decoder_output.data.max(1,keepdim=True)[1]
-                decoder_input = Variable(torch.LongTensor(ni)).cuda()
+                decoder_input = Variable(ni)
                 target=torch.index_select(target_variable, 1, Variable(torch.LongTensor([di])).cuda()).view(-1)
-                loss += criterion(decoder_output, target_variable[:di])
+                loss += self.loss(criterion,decoder_output, target)
+
 
         loss.backward()
         encoder_optimizer.step()
@@ -123,11 +124,11 @@ class Datamanager:
         criterion = nn.CrossEntropyLoss()
         for epoch in range(1, n_epochs+ 1):
             start = time.time()
+            loss_total=0
+            print_loss_total = 0  # Reset every print_every
+            plot_loss_total = 0  # Reset every plot_every
             for step, (batch_x, batch_y) in enumerate(self.data[name]):
                 batch_index=step+1
-                loss_total=0
-                print_loss_total = 0  # Reset every print_every
-                plot_loss_total = 0  # Reset every plot_every
                 batch_x=Variable(batch_x).cuda()
                 batch_y=Variable(batch_y).cuda()
 
@@ -135,20 +136,26 @@ class Datamanager:
                         decoder, encoder_optimizer, decoder_optimizer, criterion)
                 loss_total+=loss
 
-                if step % print_every == 0:
+                if batch_index% print_every == 0:
                     print_loss_avg = (loss_total - print_loss_total )/ print_every
                     print_loss_total = loss_total
                     print('\rTrain Epoch: {} | [{}/{} ({:.0f}%)] |  Loss: {:.6f} | Time: {}  '.format(
                                 epoch , batch_index*len(batch_x), self.data_size,
                                 100. * batch_index*len(batch_x)/ self.data_size, print_loss_avg,
                                 self.timeSince(start, batch_index*len(batch_x)/ self.data_size)),end='')
-                if epoch % plot_every == 0:
+                if batch_index% plot_every == 0:
                     plot_loss_avg = (loss_total - plot_loss_total )/ plot_every
                     print_loss_total = loss_total
                     plot_losses.append(plot_loss_avg)
             print('\nTime: {} | Total loss: {:.4f}'.format(self.timeSince(start,1),loss_total/batch_index))
             print('-'*60)
         return plot_losses
+    def loss(self,criterion,output,target):
+        l=0
+        for i in range(len(target)):
+            if int(target[i])!= self.voc.word2index["PAD"]:
+                l+=criterion(output[i].view(1,-1),target[i])
+        return l
     def timeSince(self,since, percent):
         now = time.time()
         s = now - since
