@@ -79,7 +79,7 @@ class Datamanager:
         encoder_outputs, encoder_hidden = encoder(input_variable)
 
 
-        decoder_hidden= encoder_hidden
+        decoder_hidden= decoder.hidden_layer(len(input_variable))
         decoder_input=torch.index_select(target_variable, 1, Variable(torch.LongTensor([0])).cuda())
         
         use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
@@ -113,6 +113,7 @@ class Datamanager:
 
         encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
         decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
+        
         criterion = nn.CrossEntropyLoss(size_average=False)
         for epoch in range(1, n_epochs+ 1):
             start = time.time()
@@ -256,12 +257,13 @@ class EncoderRNN(nn.Module):
         output, hidden = self.gru(x, hidden)
         return output, hidden
     def initHidden(self):
-        return Variable(torch.zeros(1,1, self.hidden_size)).cuda()
+        return Variable(torch.zeros(1,1, self.hidden_size),requires_grad=True).cuda()
 class AttnDecoderRNN(nn.Module):
     def __init__(self, hidden_size, vocab_size):
         super(AttnDecoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.vocab_size = vocab_size
+        self.hidden= self.initHidden()
 
         self.embedding = nn.Embedding(self.vocab_size, self.hidden_size)
         self.attn = nn.Linear(self.hidden_size * 2, self.hidden_size)
@@ -270,10 +272,13 @@ class AttnDecoderRNN(nn.Module):
         self.gru = nn.GRU(self.hidden_size, self.hidden_size,batch_first=True)
         self.out = nn.Sequential( nn.Linear(self.hidden_size, self.vocab_size))
     def forward(self, x, hidden, encoder_outputs):
-        embedded = self.embedding(x).squeeze(1)         # batch * 1
+        # x size: batch * 1
+        # encoder outputs size: batch * 80 * hidden
+        # hidden size: 1 * batch * hidden
+        embedded = self.embedding(x).squeeze(1)         # batch *  hidden
 
-        z = self.attn(torch.cat((embedded, hidden.squeeze(0)), 1)).unsqueeze(2)
-        attn_weights = self.attn_weight(torch.bmm(encoder_outputs,z).squeeze(2)).unsqueeze(1)
+        z = self.attn(torch.cat((embedded, hidden.squeeze(0)), 1)).unsqueeze(2)# batch * hidden * 1
+        attn_weights = self.attn_weight(torch.bmm(encoder_outputs,z).squeeze(2)).unsqueeze(1)# batch * hidden * 1
         attn_applied = torch.bmm(attn_weights,encoder_outputs).squeeze(1)
 
         output = self.attn_combine(torch.cat((embedded, attn_applied), 1).unsqueeze(1))
@@ -281,9 +286,10 @@ class AttnDecoderRNN(nn.Module):
         output, hidden = self.gru(output, hidden)
         output = self.out(output.squeeze(1))
         return output, hidden 
+    def hidden_layer(self,n):
+        return  torch.cat([self.hidden for i in range(n)],1)
     def initHidden(self):
-        result = Variable(torch.zeros(1, 1, self.hidden_size))
-        return result.cuda()
+        return Variable(torch.zeros(1,1, self.hidden_size),requires_grad=True).cuda()
 class VideoDataset(Dataset):
     def __init__(self, feats, captions):
         self.feats=feats
