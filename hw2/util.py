@@ -20,6 +20,8 @@ class Datamanager:
         self.data={}
         self.vocab_size=0
         self.data_size=0
+        self.test_data_size=0
+        self.test_data_labels={}
         self.max_length=0
         self.print_image=None
     def get_data(self,name,f_path,l_path,mode,batch_size,shuffle=True):
@@ -50,6 +52,7 @@ class Datamanager:
             self.test_data_size=len(labels)
             for l in labels:
                 captions[l['id']]=self.IndexFromSentence([l['caption'][0]],begin=True,end=True)
+                self.test_data_labels[l['id']]=l['caption'][0]
         else : raise ValueError('Wrong mode.')
         dataset=VideoDataset(feats,captions)
         self.data[name]=DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
@@ -65,7 +68,7 @@ class Datamanager:
             indexes.append(index)
         indexes = torch.LongTensor(indexes)
         return indexes
-    def train(self,input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, teacher_forcing_ratio=0.7):
+    def train(self,input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, teacher_forcing_ratio=1):
         encoder.train()
         decoder.train()
         encoder_optimizer.zero_grad()
@@ -150,7 +153,7 @@ class Datamanager:
         criterion = nn.CrossEntropyLoss(size_average=False)
 
         if print_image==None and self.print_image== None:
-            self.print_image=[random.choice(list(self.data[name].dataset.feats.keys())) for i in  range(3)]
+            self.print_image=[random.choice(list(self.data[name].dataset.feats.keys())) for i in  range(5)]
         elif print_image!=None :
             self.print_image=print_image
 
@@ -193,8 +196,10 @@ class Datamanager:
             for j in decoded_words[seq_id]:
                 if j ==self.voc.word2index('EOS'): break
                 seq_list.append(self.voc.index2word[j])
-            seq=' '.join(seq_list)
-            print('id: {} decoded_sequence: {}'.format(i,seq))
+            d_seq=' '.join(seq_list)
+            g_seq=self.test_data_labels[i]
+            print('id: {} | decoded_sequence: {}'.format(i,d_seq))
+            print('    {} | ground_sequence: {}'.format(' '*len(i),g_seq))
         print('-'*60)
 
         return decoded_words
@@ -265,7 +270,7 @@ class AttnDecoderRNN(nn.Module):
         self.gru = nn.GRU(self.hidden_size, self.hidden_size,batch_first=True)
         self.out = nn.Sequential( nn.Linear(self.hidden_size, self.vocab_size))
     def forward(self, x, hidden, encoder_outputs):
-        embedded = self.embedding(x).squeeze(1)
+        embedded = self.embedding(x).squeeze(1)         # batch * 1
 
         z = self.attn(torch.cat((embedded, hidden.squeeze(0)), 1)).unsqueeze(2)
         attn_weights = self.attn_weight(torch.bmm(encoder_outputs,z).squeeze(2)).unsqueeze(1)
