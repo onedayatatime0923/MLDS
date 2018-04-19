@@ -13,8 +13,6 @@ import time
 import math
 assert os and np and F and math
 
-use_cuda=True
-MAX_LENGTH=0
 
 class Datamanager:
     def __init__(self):
@@ -23,7 +21,8 @@ class Datamanager:
         self.vocab_size=0
         self.data_size=0
         self.max_length=0
-    def get_data(self,name,f_path,l_path,batch_size):
+        self.print_image=None
+    def get_data(self,name,f_path,l_path,mode,batch_size,shuffle=True):
         feats={}
         captions={}
         data_size=0
@@ -33,52 +32,42 @@ class Datamanager:
                 x=torch.FloatTensor(np.load('{}/{}'.format(f_path,i)))
                 feats[i[:-4]]=x
 
-        with open(l_path) as f:
-            labels=json.load(f)
-        for l in labels:
-            data_size+=len(l['caption'])
-            m=self.voc.addSentence(l['caption'])
-            if m>max_sen: max_sen=m
-        self.data_size=data_size
-        self.max_length=max_sen+2
-        self.vocab_size=self.voc.n_words
-        for l in labels:
-            captions[l['id']]=self.IndexFromSentence(l['caption'],begin=True,end=True)
-
+        if mode== 'train':
+            with open(l_path) as f:
+                labels=json.load(f)
+            for l in labels:
+                data_size+=len(l['caption'])
+                m=self.voc.addSentence(l['caption'])
+                if m>max_sen: max_sen=m
+            self.data_size=data_size
+            self.max_length=max_sen+2
+            self.vocab_size=self.voc.n_words
+            for l in labels:
+                captions[l['id']]=self.IndexFromSentence(l['caption'],begin=True,end=True)
+        elif mode== 'test':
+            with open(l_path) as f:
+                labels=json.load(f)
+            self.test_data_size=len(labels)
+            for l in labels:
+                captions[l['id']]=self.IndexFromSentence([l['caption'][0]],begin=True,end=True)
+        else : raise ValueError('Wrong mode.')
         dataset=VideoDataset(feats,captions)
-        self.data[name]=DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    def generate_data(self,name,batch_size,shuffle=True):
-        [feats,labels]=self.data[name]
-        indexes=[(i,j) for i in range(len(labels)) for j in range(len(labels[i]['caption']))]
-        if shuffle: random.shuffle(indexes)
-        for i in range(0,self.data_size-batch_size, batch_size):
-            x,y=[],[]
-            for  j in range(i, i+batch_size):
-                x.append(feats[labels[indexes[j][0]]['id']+'.npy'])
-                y.append(self.IndexFromSentence(labels[indexes[j][0]]['caption'][indexes[j][1]],begin=True,end=True))
-            x=Variable(torch.FloatTensor(np.array(x))).cuda()
-            y=Variable(torch.LongTensor(np.array(y))).cuda()
-            yield x,y
-        x,y=[],[]
-        for  j in range(self.data_size// batch_size *batch_size, self.data_size):
-            x.append(feats[labels[indexes[j][0]]['id']+'.npy'])
-            y.append(self.IndexFromSentence(labels[indexes[j][0]]['caption'][indexes[j][1]],begin=True,end=True))
-        x=Variable(torch.FloatTensor(np.array(x))).cuda()
-        y=Variable(torch.LongTensor(np.array(y))).cuda()
-        yield x,y
+        self.data[name]=DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
     def IndexFromSentence(self,sentences,begin=False,end=True):
         indexes=[]
         for s in sentences:
             index=[]
-            if begin: index.append(self.voc.word2index['SOS'])
-            index.extend([self.voc.word2index[word] for word in s.split(' ')])
-            if end: index.append(self.voc.word2index['EOS'])
+            if begin: index.append(self.voc.word2index('SOS'))
+            index.extend([self.voc.word2index(word) for word in s.split(' ')])
+            if end: index.append(self.voc.word2index('EOS'))
             if len(index)< self.max_length : 
-                index.extend([self.voc.word2index['PAD'] for i in range(self.max_length  -len(index))])
+                index.extend([self.voc.word2index('PAD') for i in range(self.max_length  -len(index))])
             indexes.append(index)
         indexes = torch.LongTensor(indexes)
         return indexes
     def train(self,input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, teacher_forcing_ratio=0.7):
+        encoder.train()
+        decoder.train()
         encoder_optimizer.zero_grad()
         decoder_optimizer.zero_grad()
 
@@ -116,7 +105,7 @@ class Datamanager:
         encoder_optimizer.step()
         decoder_optimizer.step()
         return loss.data[0]/ (self.max_length)
-    def trainIters(self,encoder, decoder, name, n_epochs, learning_rate=0.001, print_every=2, plot_every=100):
+    def trainIters(self,encoder, decoder, name, test_name, n_epochs, learning_rate=0.001, print_every=2, plot_every=100):
         plot_losses = []
 
         encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
@@ -149,15 +138,73 @@ class Datamanager:
                     plot_losses.append(plot_loss_avg)
             print('\nTime: {} | Total loss: {:.4f}'.format(self.timeSince(start,1),loss_total/batch_index))
             print('-'*60)
+            self.evaluate(encoder,decoder,test_name)
         return plot_losses
+    def evaluate(self,encoder, decoder, name,print_image=None):
+        encoder.eval()
+        decoder.eval()
+
+        start = time.time()
+        loss=0
+        decoded_words = []
+        criterion = nn.CrossEntropyLoss(size_average=False)
+
+        if print_image==None and self.print_image== None:
+            self.print_image=[random.choice(list(self.data[name].dataset.feats.keys())) for i in  range(3)]
+        elif print_image!=None :
+            self.print_image=print_image
+
+        for step, (batch_x, batch_y) in enumerate(self.data[name]):
+            batch_index=step+1
+            batch_x=Variable(batch_x).cuda()
+            batch_y=Variable(batch_y).cuda()
+
+            encoder_outputs, encoder_hidden = encoder(batch_x)
+
+            decoder_hidden= encoder_hidden
+            decoder_input=torch.index_select(batch_y, 1, Variable(torch.LongTensor([0])).cuda())
+
+            words=[]
+
+            for di in range(1,self.max_length):
+                decoder_output, decoder_hidden = decoder(
+                    decoder_input, decoder_hidden, encoder_outputs)
+                ni = decoder_output.data.max(1,keepdim=True)[1]
+                decoder_input = Variable(ni)
+                words.append(ni)
+
+                target=torch.index_select(batch_y, 1, Variable(torch.LongTensor([di])).cuda()).view(-1)
+                loss += float(self.loss(criterion,decoder_output, target))
+
+            words= torch.cat(words,1).unsqueeze(1)
+            decoded_words.extend(words)
+            loss /= self.max_length
+
+            print('\rTest | [{}/{} ({:.0f}%)] |  Loss: {:.6f} | Time: {}  '.format(
+                        batch_index*len(batch_x), self.test_data_size,
+                        100. * batch_index*len(batch_x)/ self.test_data_size, loss,
+                        self.timeSince(start, batch_index*len(batch_x)/ self.data_size)),end='')
+
+        print('\nTime: {} | Total loss: {:.4f}'.format(self.timeSince(start,1),loss))
+        decoded_words=torch.cat(decoded_words,0)
+        for i in self.print_image:
+            seq_id=self.data[name].dataset.get_id(i)
+            seq_list=[]
+            for j in decoded_words[seq_id]:
+                if j ==self.voc.word2index('EOS'): break
+                seq_list.append(self.voc.index2word[j])
+            seq=' '.join(seq_list)
+            print('id: {} decoded_sequence: {}'.format(i,seq))
+        print('-'*60)
+
+        return decoded_words
     def loss(self,criterion,output,target):
-        l, c=0, 0
-        for i in range(len(target)):
-            if int(target[i])!= self.voc.word2index["PAD"]:
-                c+=1
-                l+=criterion(output[i].view(1,-1),target[i])
-        if c==0: return 0
-        else : return l/c
+        check_t=(target!=self.voc.word2index("PAD"))
+        t=torch.masked_select(target,check_t).view(-1)
+        check_o=check_t.view(-1,1)
+        o=torch.masked_select(output,check_o).view(-1,self.vocab_size)
+        if len(t)==0: return 0
+        else : return criterion(o,t)/len(t)
     def timeSince(self,since, percent):
         now = time.time()
         s = now - since
@@ -170,10 +217,13 @@ class Datamanager:
         return '%dm %ds' % (m, s)
 class Vocabulary:
     def __init__(self):
-        self.word2index = {"SOS":0, "EOS":1, "PAD":2}
+        self.w2i= {"SOS":0, "EOS":1, "PAD":2, "UNK":2}
         self.word2count = {}
-        self.index2word = {0: "SOS", 1: "EOS", 2: "PAD"}
-        self.n_words = 3  # Count SOS and EOS
+        self.index2word = {0: "SOS", 1: "EOS", 2: "PAD", 2:"UNK"}
+        self.n_words = 4  # Count SOS and EOS and PAD and UNK
+    def word2index(self,word):
+        if word in self.w2i: return self.w2i[word]
+        else: return self.w2i["UNK"]
     def addSentence(self, sentences):
         max_sen=0
         for sentence in sentences:
@@ -183,8 +233,8 @@ class Vocabulary:
             if len(sentence_list)>max_sen: max_sen=len(sentence_list)
         return max_sen
     def addWord(self, word):
-        if word not in self.word2index:
-            self.word2index[word] = self.n_words
+        if word not in self.w2i:
+            self.w2i[word] = self.n_words
             self.word2count[word] = 1
             self.index2word[self.n_words] = word
             self.n_words += 1
@@ -203,11 +253,10 @@ class EncoderRNN(nn.Module):
     def initHidden(self):
         return Variable(torch.zeros(1,1, self.hidden_size)).cuda()
 class AttnDecoderRNN(nn.Module):
-    def __init__(self, hidden_size, vocab_size, dropout_p=0.1 ):
+    def __init__(self, hidden_size, vocab_size):
         super(AttnDecoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.vocab_size = vocab_size
-        self.dropout_p = dropout_p
 
         self.embedding = nn.Embedding(self.vocab_size, self.hidden_size)
         self.attn = nn.Linear(self.hidden_size * 2, self.hidden_size)
@@ -235,12 +284,21 @@ class VideoDataset(Dataset):
         self.feats=feats
         self.captions=captions
         index=[]
+        id_={}
+        c=0
         for i in captions:
+            id_[i]=c
+            c+=1
             index.extend([(i,j) for j in range(len(captions[i]))])
+        self.id_= id_
         self.index=index
+        #print(len(index))
+    def get_id(self,name):
+        return self.id_[name]
     def __getitem__(self, i):
         x=self.feats[self.index[i][0]]
         y=self.captions[self.index[i][0]][self.index[i][1]]
         return x,y
     def __len__(self):
         return len(self.index)
+
