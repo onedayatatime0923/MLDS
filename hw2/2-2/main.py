@@ -9,15 +9,19 @@ HIDDEN_LAYER=512
 
 
 dm = Datamanager()
-dm.get_data('train','./data/training_data/feat','./data/training_label.json','train',batch_size=BATCH_SIZE)
-dm.get_data('test','./data/testing_data/feat','./data/testing_label.json','test',batch_size=BATCH_SIZE,shuffle=False)
+dm.get_data('train','clr_conversation.txt','train',batch_size=BATCH_SIZE)
+#dm.get_data('test','./data/testing_data/feat','./data/testing_label.json','test',batch_size=BATCH_SIZE,shuffle=False)
+print('finish data processing ...')
 
-encoder=EncoderRNN(4096,HIDDEN_LAYER).cuda()
+encoder=EncoderRNN(HIDDEN_LAYER,HIDDEN_LAYER,dm.vocab_size).cuda()
 torch.save(encoder,'encoder.pt')
+print('finish establish encoder ...')
 decoder=AttnDecoderRNN(HIDDEN_LAYER,dm.vocab_size).cuda()
 torch.save(decoder,'decoder.pt')
+print('finish establishing decoder ...')
 
-dm.trainIters(encoder, decoder, 'train', 'test', EPOCHS)
+print('start training ...')
+dm.trainIters(encoder, decoder, 'train', 'train', EPOCHS)
 torch.save(encoder,'encoder.pt')
 torch.save(decoder,'decoder.pt')
 

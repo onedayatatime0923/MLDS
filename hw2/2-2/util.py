@@ -24,50 +24,93 @@ class Datamanager:
         self.test_data_labels={}
         self.max_length=0
         self.print_image=None
-    def get_data(self,name,f_path,l_path,mode,batch_size,shuffle=True):
-        feats={}
-        captions={}
-        data_size=0
-        max_sen=0
-        for i in os.listdir(f_path):
-            if not i.startswith('.'):
-                x=torch.FloatTensor(np.load('{}/{}'.format(f_path,i)))
-                feats[i[:-4]]=x
+    def get_data(self,name,c_path,mode,batch_size,shuffle=True):
+        feats = {}
+        target = {}
+        split_corpus = []
+        with open(c_path,'r',encoding='utf-8') as f :
+            tmp = []
+            while(True):
+                data = f.readline().replace('\n','')
+                #print(data)
+                if(data==''): break
+                elif(data=='+++$+++'): 
+                    split_corpus.append(tmp)
+                    tmp = []
+                    if(len(split_corpus)==1000): break
+                    #print(tmp)
+                    continue
+                else: tmp.append(data)
+            #print(len(split_corpus))
+            #print(split_corpus[-1])  
+            #input()
+        f.close()
+        print('finish reading')
 
-        if mode== 'train':
-            with open(l_path) as f:
-                labels=json.load(f)
-            for l in labels:
-                data_size+=len(l['caption'])
-                m=self.voc.addSentence(l['caption'])
-                if m>max_sen: max_sen=m
-            self.data_size=data_size
-            self.max_length=max_sen+2
-            self.vocab_size=self.voc.n_words
-            for l in labels:
-                captions[l['id']]=self.IndexFromSentence(l['caption'],begin=True,end=True)
-        elif mode== 'test':
-            with open(l_path) as f:
-                labels=json.load(f)
-            self.test_data_size=len(labels)
-            for l in labels:
-                captions[l['id']]=self.IndexFromSentence([l['caption'][0]],begin=True,end=True)
-                self.test_data_labels[l['id']]=l['caption'][0]
-        else : raise ValueError('Wrong mode.')
-        dataset=VideoDataset(feats,captions)
+        self.vocab_size=self.voc.n_words
+        max_sen = 0
+
+        for dialog in split_corpus:
+            for sen in dialog:
+                if(sen=='+++$+++'): continue
+                m = self.voc.addSentence(sen)
+                #print(sen,' ',m)
+                if m > max_sen: max_sen = m
+                #print(max_sen)
+        self.max_length = max_sen + 2
+        #print(self.max_length)
+        
+        count_f = 0
+        count_t = 0
+        count=0
+        for dialog in split_corpus:
+            if(len(dialog)<2): continue
+            print('count= ',count)
+            count+=1
+            for num,sen in enumerate(dialog):
+                if(num==0):
+                    #print('A')
+                    feats[count_f] = self.IndexFromSentence(sen,begin=True,end=True)
+                    #feats[count_f] = sen
+                    #print('feats {}: {}'.format(count_f,sen))
+                    count_f+=1
+                elif(num==len(dialog)-1):
+                    #print('B')
+                    target[count_t] = self.IndexFromSentence(sen,begin=True,end=True)
+                    #target[count_t] = sen
+                    #print('target {}: {}'.format(count_t,sen))
+                    count_t+=1
+                else:
+                    #print('C')
+                    feats[count_f] = self.IndexFromSentence(sen,begin=True,end=True)
+                    target[count_t] = self.IndexFromSentence(sen,begin=True,end=True)
+                    #feats[count_f] = sen
+                    #target[count_t] = sen
+                    #print('feats {}: {}'.format(count_f,sen))
+                    #print('target {}: {}'.format(count_t,sen))
+                    count_f+=1              
+                    count_t+=1
+            #print(count_f,' ',count_t)
+        #input()
+        print('target length: ',len(target))
+        print('feats length: ',len(feats))
+        self.data_size = len(feats)
+        #print(feats[0].size())
+        #input()
+        dataset=DialogDataset(feats,target) # feat shape torch.Size([28])
         self.data[name]=DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
-    def IndexFromSentence(self,sentences,begin=False,end=True):
-        indexes=[]
-        for s in sentences:
-            index=[]
-            if begin: index.append(self.voc.word2index('SOS'))
-            index.extend([self.voc.word2index(word) for word in s.split(' ')])
-            if end: index.append(self.voc.word2index('EOS'))
-            if len(index)< self.max_length : 
-                index.extend([self.voc.word2index('PAD') for i in range(self.max_length  -len(index))])
-            indexes.append(index)
-        indexes = torch.LongTensor(indexes)
-        return indexes
+    def IndexFromSentence(self,s,begin=False,end=True):
+        #indexes=[]
+        #for s in sentence:
+        index=[]
+        if begin: index.append(self.voc.word2index('SOS'))
+        index.extend([self.voc.word2index(word) for word in s.split(' ')])
+        if end: index.append(self.voc.word2index('EOS'))
+        if len(index)< self.max_length : 
+            index.extend([self.voc.word2index('PAD') for i in range(self.max_length - len(index))])
+        #indexes.append(index)
+        index = torch.LongTensor(index)
+        return index
     def train(self,input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, teacher_forcing_ratio=1):
         encoder.train()
         decoder.train()
@@ -75,13 +118,18 @@ class Datamanager:
         decoder_optimizer.zero_grad()
 
         loss = 0
-
+        print('start encoding ...')
         encoder_outputs, encoder_hidden = encoder(input_variable)
-
+        print('finish encoding ...')
 
         decoder_hidden= decoder.hidden_layer(len(input_variable))
-        decoder_input=torch.index_select(target_variable, 1, Variable(torch.LongTensor([0])).cuda())
+        print('*'*50)
+        target_variable = target_variable.view(len(target_variable),self.max_length)
+        print('target_variable size= ',target_variable.size())
         
+        decoder_input = torch.index_select(target_variable, 1 , Variable(torch.LongTensor([0])).cuda())
+        print('decoder_input size= ',decoder_input.size())
+        print('start decoding ...')
         use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
 
         if use_teacher_forcing:
@@ -102,12 +150,13 @@ class Datamanager:
                 decoder_input = Variable(ni)
                 target=torch.index_select(target_variable, 1, Variable(torch.LongTensor([di])).cuda()).view(-1)
                 loss += self.loss(criterion,decoder_output, target)
-
-
+        print('finish decoding ...')
+        print('updating parameters ...')
         loss.backward()
         encoder_optimizer.step()
         decoder_optimizer.step()
         return loss.data[0]/ (self.max_length)
+        
     def trainIters(self,encoder, decoder, name, test_name, n_epochs, learning_rate=0.001, print_every=2, plot_every=100):
         plot_losses = []
 
@@ -159,13 +208,13 @@ class Datamanager:
             self.print_image=print_image
 
         for step, (batch_x, batch_y) in enumerate(self.data[name]):
-            batch_index=step+1
+            batch_index = step + 1
             batch_x=Variable(batch_x).cuda()
             batch_y=Variable(batch_y).cuda()
 
             encoder_outputs, encoder_hidden = encoder(batch_x)
 
-            decoder_hidden= encoder_hidden
+            decoder_hidden= encoder_hidden 
             decoder_input=torch.index_select(batch_y, 1, Variable(torch.LongTensor([0])).cuda())
 
             words=[]
@@ -174,7 +223,7 @@ class Datamanager:
                 decoder_output, decoder_hidden = decoder(
                     decoder_input, decoder_hidden, encoder_outputs)
                 ni = decoder_output.data.max(1,keepdim=True)[1]
-                decoder_input = Variable(ni)
+                decoder_input = Variable(ni)       
                 words.append(ni)
 
                 target=torch.index_select(batch_y, 1, Variable(torch.LongTensor([di])).cuda()).view(-1)
@@ -192,15 +241,15 @@ class Datamanager:
         print('\nTime: {} | Total loss: {:.4f}'.format(self.timeSince(start,1),loss))
         decoded_words=torch.cat(decoded_words,0)
         for i in self.print_image:
-            seq_id=self.data[name].dataset.get_id(i)
+            #seq_id=self.data[name].dataset.get_id(i)
             seq_list=[]
-            for j in decoded_words[seq_id]:
-                if j ==self.voc.word2index('EOS'): break
+            for j in decoded_words[i]:
+                if j == self.voc.word2index('EOS'): break
                 seq_list.append(self.voc.index2word[j])
-            d_seq=' '.join(seq_list)
-            g_seq=self.test_data_labels[i]
-            print('id: {} | decoded_sequence: {}'.format(i,d_seq))
-            print('    {} | ground_sequence: {}'.format(' '*len(i),g_seq))
+            d_seq = ' '.join(seq_list)
+            g_seq = self.data[name].dataset.target[i]
+            print('decoded_sequence: {}'.format(d_seq))
+            print('ground_sequence: {}'.format(g_seq))
         print('-'*60)
 
         return decoded_words
@@ -223,20 +272,19 @@ class Datamanager:
         return '%dm %ds' % (m, s)
 class Vocabulary:
     def __init__(self):
-        self.w2i= {"SOS":0, "EOS":1, "PAD":2, "UNK":2}
-        self.word2count = {}
-        self.index2word = {0: "SOS", 1: "EOS", 2: "PAD", 2:"UNK"}
+        self.w2i= {"SOS":0, "EOS":1, "PAD":2, "UNK":3}
+        self.min_count = 1
+        self.word2count = {"SOS":self.min_count, "EOS":self.min_count, "PAD":self.min_count, "UNK":self.min_count}
+        self.index2word = {0: "SOS", 1: "EOS", 2: "PAD", 3:"UNK"}
         self.n_words = 4  # Count SOS and EOS and PAD and UNK
     def word2index(self,word):
-        if word in self.w2i: return self.w2i[word]
+        if word in self.w2i and self.word2count[word] >= self.min_count: return self.w2i[word]
         else: return self.w2i["UNK"]
-    def addSentence(self, sentences):
-        max_sen=0
-        for sentence in sentences:
-            sentence_list=sentence.split(' ')
-            for word in sentence_list:
-                self.addWord(word)
-            if len(sentence_list)>max_sen: max_sen=len(sentence_list)
+    def addSentence(self, sentence):
+        sentence_list = sentence.split(' ')
+        for word in sentence_list:
+            self.addWord(word)
+        max_sen = len(sentence_list)
         return max_sen
     def addWord(self, word):
         if word not in self.w2i:
@@ -246,15 +294,23 @@ class Vocabulary:
             self.n_words += 1
         else:
             self.word2count[word] += 1
+        
 class EncoderRNN(nn.Module):
-    def __init__(self,input_size, hidden_size):
+    def __init__(self,input_size, hidden_size , vocab_size):
         super(EncoderRNN, self).__init__()
         self.hidden_size = hidden_size
+        self.vocab_size = vocab_size
+        self.embedding = nn.Embedding(self.vocab_size,self.hidden_size)
         self.hidden= self.initHidden()
         self.gru = nn.GRU(input_size, hidden_size,batch_first=True)
     def forward(self, x):
-        hidden= torch.cat([self.hidden for i in range(len(x))],1)
-        output, hidden = self.gru(x, hidden)
+        #x = x.view(-1,28) 
+        embedded = self.embedding(x) # (batch_size,28,hidden_size)
+        print('embedded size = ',embedded.size())
+        
+        hidden= torch.cat([self.hidden for i in range(len(x))],1) # (1,batch_size,hidden_size)
+        print('hidden.size = ',hidden.size())
+        output, hidden = self.gru(embedded, hidden)
         return output, hidden
     def initHidden(self):
         return Variable(torch.zeros(1,1, self.hidden_size),requires_grad=True).cuda()
@@ -290,26 +346,28 @@ class AttnDecoderRNN(nn.Module):
         return  torch.cat([self.hidden for i in range(n)],1)
     def initHidden(self):
         return Variable(torch.zeros(1,1, self.hidden_size),requires_grad=True).cuda()
-class VideoDataset(Dataset):
-    def __init__(self, feats, captions):
-        self.feats=feats
-        self.captions=captions
-        index=[]
-        id_={}
-        c=0
-        for i in captions:
-            id_[i]=c
-            c+=1
-            index.extend([(i,j) for j in range(len(captions[i]))])
-        self.id_= id_
-        self.index=index
+class DialogDataset(Dataset):
+    def __init__(self, feats, target):
+        self.feats = feats
+        self.target = target
+        #index=[]
+        #id_={}
+        #c=0
+        #for i in captions:
+            #id_[i]=c
+            #c+=1
+            #index.extend([(i,j) for j in range(len(captions[i]))])
+        #self.id_= id_
+        #self.index=index
         #print(len(index))
-    def get_id(self,name):
-        return self.id_[name]
+    #def get_id(self,name):
+        #return self.id_[name]
     def __getitem__(self, i):
-        x=self.feats[self.index[i][0]]
-        y=self.captions[self.index[i][0]][self.index[i][1]]
+        #x=self.feats[self.index[i][0]]
+        #y=self.captions[self.index[i][0]][self.index[i][1]]
+        x = self.feats[i]
+        y = self.target[i]
         return x,y
     def __len__(self):
-        return len(self.index)
+        return len(self.feats)
 
