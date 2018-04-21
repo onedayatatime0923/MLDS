@@ -37,20 +37,14 @@ class Datamanager:
                 elif(data=='+++$+++'): 
                     split_corpus.append(tmp)
                     tmp = []
-                    if(len(split_corpus)==1000): break
-                    #print(tmp)
+                    if(len(split_corpus)==5000): break
                     continue
                 else: tmp.append(data)
-            #print(len(split_corpus))
-            #print(split_corpus[-1])  
-            #input()
         f.close()
         print('finish reading')
 
-        self.vocab_size=self.voc.n_words
         max_sen = 0
-
-        for dialog in split_corpus:
+        for dialog in split_corpus: ## length = 56523
             for sen in dialog:
                 if(sen=='+++$+++'): continue
                 m = self.voc.addSentence(sen)
@@ -58,15 +52,15 @@ class Datamanager:
                 if m > max_sen: max_sen = m
                 #print(max_sen)
         self.max_length = max_sen + 2
-        #print(self.max_length)
+        self.vocab_size = self.voc.n_words
         
         count_f = 0
         count_t = 0
-        count=0
+        #count=0
         for dialog in split_corpus:
             if(len(dialog)<2): continue
-            print('count= ',count)
-            count+=1
+            #print('count= ',count)
+            #count+=1
             for num,sen in enumerate(dialog):
                 if(num==0):
                     #print('A')
@@ -95,9 +89,8 @@ class Datamanager:
         print('target length: ',len(target))
         print('feats length: ',len(feats))
         self.data_size = len(feats)
-        #print(feats[0].size())
-        #input()
-        dataset=DialogDataset(feats,target) # feat shape torch.Size([28])
+        self.test_data_size = len(feats)
+        dataset=DialogDataset(feats,target) # torch.Size([max_length])
         self.data[name]=DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
     def IndexFromSentence(self,s,begin=False,end=True):
         #indexes=[]
@@ -118,18 +111,18 @@ class Datamanager:
         decoder_optimizer.zero_grad()
 
         loss = 0
-        print('start encoding ...')
+        #print('start encoding ...')
         encoder_outputs, encoder_hidden = encoder(input_variable)
-        print('finish encoding ...')
+        #print('finish encoding ...')
 
         decoder_hidden= decoder.hidden_layer(len(input_variable))
-        print('*'*50)
+        #print('*'*50)
         target_variable = target_variable.view(len(target_variable),self.max_length)
-        print('target_variable size= ',target_variable.size())
+        #print('target_variable size= ',target_variable.size())
         
         decoder_input = torch.index_select(target_variable, 1 , Variable(torch.LongTensor([0])).cuda())
-        print('decoder_input size= ',decoder_input.size())
-        print('start decoding ...')
+        #print('decoder_input size= ',decoder_input.size())
+        #print('start decoding ...')
         use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
 
         if use_teacher_forcing:
@@ -150,8 +143,8 @@ class Datamanager:
                 decoder_input = Variable(ni)
                 target=torch.index_select(target_variable, 1, Variable(torch.LongTensor([di])).cuda()).view(-1)
                 loss += self.loss(criterion,decoder_output, target)
-        print('finish decoding ...')
-        print('updating parameters ...')
+        #print('finish decoding ...')
+        #print('updating parameters ...')
         loss.backward()
         encoder_optimizer.step()
         decoder_optimizer.step()
@@ -225,7 +218,7 @@ class Datamanager:
                 ni = decoder_output.data.max(1,keepdim=True)[1]
                 decoder_input = Variable(ni)       
                 words.append(ni)
-
+ 
                 target=torch.index_select(batch_y, 1, Variable(torch.LongTensor([di])).cuda()).view(-1)
                 loss += float(self.loss(criterion,decoder_output, target))
 
@@ -237,21 +230,28 @@ class Datamanager:
                         batch_index*len(batch_x), self.test_data_size,
                         100. * batch_index*len(batch_x)/ self.test_data_size, loss,
                         self.timeSince(start, batch_index*len(batch_x)/ self.data_size)),end='')
-
+        
         print('\nTime: {} | Total loss: {:.4f}'.format(self.timeSince(start,1),loss))
         decoded_words=torch.cat(decoded_words,0)
+        print('decoded_words size: ',decoded_words.size())
         for i in self.print_image:
             #seq_id=self.data[name].dataset.get_id(i)
-            seq_list=[]
+            seq_list_d = []
+            seq_list_g = []
+            #print('decoded_words[i]: ',decoded_words[i])
+            #input()
             for j in decoded_words[i]:
                 if j == self.voc.word2index('EOS'): break
-                seq_list.append(self.voc.index2word[j])
-            d_seq = ' '.join(seq_list)
-            g_seq = self.data[name].dataset.target[i]
+                seq_list_d.append(self.voc.index2word[j])
+            d_seq = ' '.join(seq_list_d)
+            for j in self.data[name].dataset.target[i]:
+                if j == self.voc.word2index('EOS'): break
+                seq_list_g.append(self.voc.index2word[j])
+            g_seq = ' '.join(seq_list_g[1:])
             print('decoded_sequence: {}'.format(d_seq))
             print('ground_sequence: {}'.format(g_seq))
         print('-'*60)
-
+ 
         return decoded_words
     def loss(self,criterion,output,target):
         check_t=(target!=self.voc.word2index("PAD"))
@@ -301,15 +301,16 @@ class EncoderRNN(nn.Module):
         self.hidden_size = hidden_size
         self.vocab_size = vocab_size
         self.embedding = nn.Embedding(self.vocab_size,self.hidden_size)
-        self.hidden= self.initHidden()
+        self.hidden = self.initHidden()
         self.gru = nn.GRU(input_size, hidden_size,batch_first=True)
     def forward(self, x):
         #x = x.view(-1,28) 
-        embedded = self.embedding(x) # (batch_size,28,hidden_size)
-        print('embedded size = ',embedded.size())
-        
-        hidden= torch.cat([self.hidden for i in range(len(x))],1) # (1,batch_size,hidden_size)
-        print('hidden.size = ',hidden.size())
+        embedded = self.embedding(x) # (batch_size,max_length,hidden_size)
+        #print('embedded size = ',embedded.size())
+        #print('x len= ',len(x))
+        #print('hidden size: ',self.hidden.size())
+        hidden = torch.cat([self.hidden for i in range(len(x))],1) # (1,batch_size,hidden_size)
+        #print('hidden.size = ',hidden.size())
         output, hidden = self.gru(embedded, hidden)
         return output, hidden
     def initHidden(self):
@@ -348,20 +349,11 @@ class AttnDecoderRNN(nn.Module):
         return Variable(torch.zeros(1,1, self.hidden_size),requires_grad=True).cuda()
 class DialogDataset(Dataset):
     def __init__(self, feats, target):
-        self.feats = feats
+        self.feats = feats    ## sentence id(name) : sentence content
         self.target = target
-        #index=[]
-        #id_={}
-        #c=0
-        #for i in captions:
-            #id_[i]=c
-            #c+=1
-            #index.extend([(i,j) for j in range(len(captions[i]))])
-        #self.id_= id_
-        #self.index=index
         #print(len(index))
-    #def get_id(self,name):
-        #return self.id_[name]
+    def get_id(self,name):
+        return self.id_[name]
     def __getitem__(self, i):
         #x=self.feats[self.index[i][0]]
         #y=self.captions[self.index[i][0]][self.index[i][1]]
