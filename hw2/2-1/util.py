@@ -111,7 +111,7 @@ class Datamanager:
         decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
         
         criterion = nn.CrossEntropyLoss(size_average=False)
-        teacher_forcing_ratio=F.sigmoid(torch.linspace(30,-2,n_epochs))
+        teacher_forcing_ratio=F.sigmoid(torch.linspace(30,-10,n_epochs))
         data_size = len(self.data[name][0].dataset)
         record=0
         for epoch in range(n_epochs):
@@ -130,7 +130,7 @@ class Datamanager:
                 loss_total+=loss
 
                 words= torch.cat(words,1)
-                for i in range(len(video)):
+                for i in range(len(video[0])):
                     seq_list=[]
                     for j in words[i]:
                         if j ==self.voc.word2index('EOS'): break
@@ -189,7 +189,7 @@ class Datamanager:
                 loss += float(self.loss(criterion,decoder_output, target))
 
             words= torch.cat(words,1)
-            for i in range(len(video)):
+            for i in range(len(video[0])):
                 seq_list=[]
                 for j in words[i]:
                     if j ==self.voc.word2index('EOS'): break

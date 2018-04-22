@@ -11,7 +11,7 @@ import json
 import random
 import time
 import math
-assert os and np and F and math
+assert os and np and F and math and json
 
 
 class Datamanager:
@@ -156,7 +156,6 @@ class Datamanager:
         encoder_optimizer.step()
         decoder_optimizer.step()
         return loss.data[0]/ (self.max_length)
-        
     def trainIters(self,encoder, decoder, name, test_name, n_epochs, learning_rate=0.001, print_every=2, plot_every=100):
         plot_losses = []
 
@@ -294,7 +293,6 @@ class Vocabulary:
             self.n_words += 1
         else:
             self.word2count[word] += 1
-        
 class EncoderRNN(nn.Module):
     def __init__(self,input_size, hidden_size , vocab_size):
         super(EncoderRNN, self).__init__()
