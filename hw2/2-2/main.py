@@ -3,13 +3,13 @@ from util import Datamanager, EncoderRNN, AttnDecoderRNN
 import torch
 assert torch and EncoderRNN and AttnDecoderRNN
 
-EPOCHS=300
-BATCH_SIZE=256
-HIDDEN_LAYER=512
+EPOCHS = 300
+BATCH_SIZE = 128
+HIDDEN_LAYER = 128
 
 
 dm = Datamanager()
-dm.get_data('train','clr_conversation.txt','train',batch_size=BATCH_SIZE)
+dm.get_data('train','clr_conversation.txt','train',batch_size=BATCH_SIZE,shuffle=False)
 #dm.get_data('test','./data/testing_data/feat','./data/testing_label.json','test',batch_size=BATCH_SIZE,shuffle=False)
 print('finish data processing ...')
 
