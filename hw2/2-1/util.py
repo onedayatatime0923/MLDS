@@ -17,8 +17,8 @@ assert os and np and F and math
 
 
 class Datamanager:
-    def __init__(self):
-        self.voc=Vocabulary()
+    def __init__(self,min_count):
+        self.voc=Vocabulary(min_count)
         self.data={}
         self.vocab_size=0
         self.max_length=0
@@ -41,10 +41,12 @@ class Datamanager:
                 if m>max_sen: max_sen=m
             self.max_length=max_sen+2
             self.vocab_size=self.voc.n_words
+            # save the captions_str is for getting the grounded sequence when evaluating
             for l in labels:
                 captions_id[l['id']]=self.IndexFromSentence(l['caption'],begin=True,end=True)
                 captions_str[l['id']]=[x.rstrip('.') for x in l['caption']]
         elif mode== 'test':
+            # save the captions_str is for getting the grounded sequence when evaluating
             for l in labels:
                 captions_id[l['id']]=self.IndexFromSentence([l['caption'][0]],begin=True,end=True)
                 captions_str[l['id']]= [x.rstrip('.') for x in l['caption']]
@@ -56,7 +58,7 @@ class Datamanager:
         for s in sentences:
             index=[]
             if begin: index.append(self.voc.word2index('SOS'))
-            index.extend([self.voc.word2index(word) for word in s.split(' ')])
+            index.extend([self.voc.word2index(word) for  word in s.split(' ')])
             if end: index.append(self.voc.word2index('EOS'))
             if len(index)< self.max_length : 
                 index.extend([self.voc.word2index('PAD') for i in range(self.max_length  -len(index))])
@@ -222,8 +224,8 @@ class Datamanager:
                 seq_list.append(self.voc.index2word[j])
             d_seq=' '.join(seq_list)
             g_seq=self.data[name][1][i][videos[1][seq_id]]
-            print('id: {} | decoded_sequence: {}'.format(i,d_seq))
-            print('    {} | ground_sequence: {}'.format(' '*len(i),g_seq))
+            print('id: {:<25} | decoded_sequence: {}'.format(i,d_seq))
+            print('    {:<25} | ground_sequence: {}'.format(' '*len(i),g_seq))
         
         if write_file!=None and bleu_average > record:
             with open(write_file,'w') as f:
@@ -342,11 +344,12 @@ class Datamanager:
             count += m_w
         return count
 class Vocabulary:
-    def __init__(self):
+    def __init__(self,min_count):
         self.w2i= {"SOS":0, "EOS":1, "PAD":2, "UNK":2}
         self.word2count = {}
         self.index2word = {0: "SOS", 1: "EOS", 2: "PAD", 2:"UNK"}
         self.n_words = 4  # Count SOS and EOS and PAD and UNK
+        self.min_count=min_count
     def word2index(self,word):
         if word in self.w2i: return self.w2i[word]
         else: return self.w2i["UNK"]
@@ -360,13 +363,13 @@ class Vocabulary:
         return max_sen
     def addWord(self, word):
         word=word.lower()
-        if word not in self.w2i:
+        if word in self.word2count: self.word2count[word]+=1
+        else: self.word2count[word] = 1
+        if self.word2count[word] == self.min_count:
             self.w2i[word] = self.n_words
-            self.word2count[word] = 1
             self.index2word[self.n_words] = word
             self.n_words += 1
-        else:
-            self.word2count[word] += 1
+
 class EncoderRNN(nn.Module):
     def __init__(self,input_size, hidden_size, layer_n, dropout=0.3):
         super(EncoderRNN, self).__init__()
@@ -381,10 +384,11 @@ class EncoderRNN(nn.Module):
     def initHidden(self,layer_n):
         return Variable(torch.zeros(layer_n,1, self.hidden_size),requires_grad=True).cuda()
 class AttnDecoderRNN(nn.Module):
-    def __init__(self, hidden_size, vocab_size,layer_n, dropout):
+    def __init__(self, hidden_size, vocab_size, layer_n, hop_n, dropout):
         super(AttnDecoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.vocab_size = vocab_size
+        self.hop_n= hop_n 
         self.hidden= self.initHidden(layer_n)
 
         self.embedding = nn.Embedding(self.vocab_size, self.hidden_size)
@@ -404,11 +408,13 @@ class AttnDecoderRNN(nn.Module):
         embedded = self.embedding(x).squeeze(1)         # batch *  hidden
 
         h=torch.transpose(hidden,0,1).contiguous().view(hidden.size()[1],-1)
-        z = self.attn(torch.cat((embedded, h), 1)).unsqueeze(2)# batch * hidden * 1
-        attn_weights = self.attn_weight(torch.bmm(encoder_outputs,z).squeeze(2)).unsqueeze(1)# batch * 1 * 80 
-        attn_applied = torch.bmm(attn_weights,encoder_outputs).squeeze(1)
+        z = self.attn(torch.cat((embedded, h), 1)) # batch * hidden
+        # hopping
+        for n in range(self.hop_n):
+            weight = self.attn_weight(torch.bmm(encoder_outputs,z.unsqueeze(2)).squeeze(2)) # batch * 80 
+            z = torch.bmm(weight.unsqueeze(1),encoder_outputs).squeeze(1) # batch * hidden
 
-        output = self.attn_combine(torch.cat((embedded, attn_applied), 1)).unsqueeze(1)
+        output = self.attn_combine(torch.cat((embedded, z), 1)).unsqueeze(1)
 
         output, hidden=self.rnn(output, hidden)
         output = self.out(output.squeeze(1))
