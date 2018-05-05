@@ -71,7 +71,8 @@ class Datamanager:
         encoder_optimizer.zero_grad()
         decoder_optimizer.zero_grad()
 
-        loss = 0
+        loss = torch.cuda.FloatTensor([0])
+        loss_n = 0
 
         encoder_outputs, encoder_hidden = encoder(input_variable)
 
@@ -82,32 +83,32 @@ class Datamanager:
         
         use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
 
-        if use_teacher_forcing:
-            # Teacher forcing: Feed the target as the next input
-            for di in range(1,self.max_length):
-                decoder_output, decoder_hidden= decoder(
-                    decoder_input, decoder_hidden, encoder_outputs)
+        for di in range(1,self.max_length):
+            decoder_output, decoder_hidden= decoder(
+                decoder_input, decoder_hidden, encoder_outputs)
+            if use_teacher_forcing:
+                # Teacher forcing: Feed the target as the next input
                 decoder_input=torch.index_select(target_variable, 1, Variable(torch.LongTensor([di])).cuda())
                 target=decoder_input.view(-1)
-                loss += self.loss(criterion,decoder_output, target)
+                l,n = self.loss(criterion,decoder_output, target)
+                loss = loss + l
+                loss_n += n
                 words.append(decoder_output.data.max(1,keepdim=True)[1])
-
-        else:
-            # Without teacher forcing: use its own predictions as the next input
-            for di in range(1,self.max_length):
-                decoder_output, decoder_hidden = decoder(
-                    decoder_input, decoder_hidden, encoder_outputs)
+            else:
+                # Without teacher forcing: use its own predictions as the next input
                 ni = decoder_output.data.max(1,keepdim=True)[1]
                 decoder_input = Variable(ni)
                 target=torch.index_select(target_variable, 1, Variable(torch.LongTensor([di])).cuda()).view(-1)
-                loss += self.loss(criterion,decoder_output, target)
+                l,n = self.loss(criterion,decoder_output, target)
+                loss = loss + l
+                loss_n += n
                 words.append(ni)
 
-
+        loss=loss / loss_n
         loss.backward()
         encoder_optimizer.step()
         decoder_optimizer.step()
-        return loss.data[0]/ (self.max_length)
+        return float(loss)/ (self.max_length)
     def trainIters(self,encoder, decoder, name, test_name, n_epochs, write_file , learning_rate=0.001, print_every=2):
         encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
         decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
@@ -127,20 +128,12 @@ class Datamanager:
                 batch_y=Variable(batch_y).cuda()
                 words=[]
 
-                loss = self.train(batch_x, batch_y, encoder,
-                        decoder, encoder_optimizer, decoder_optimizer, criterion, words, teacher_forcing_ratio=teacher_forcing_ratio[epoch])
+                loss = self.train(batch_x, batch_y, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, words, teacher_forcing_ratio=teacher_forcing_ratio[epoch])
+                # loss
                 loss_total+=loss
-
+                # bleu
                 words= torch.cat(words,1)
-                for i in range(len(video[0])):
-                    seq_list=[]
-                    for j in words[i]:
-                        if j ==self.voc.word2index('EOS'): break
-                        seq_list.append(self.voc.index2word[j])
-                    seq_list=' '.join(seq_list)
-                    target_list=self.data[name][1][video[0][i]]
-                    if (len(seq_list)!=0):
-                        bleu.append(self.BLEU(seq_list,target_list,True))
+                bleu.extend(self.bleu_batch(words,name,video[0]))
 
                 if batch_index% print_every == 0:
                     print_loss_avg = (loss_total - print_loss_total )/ print_every
@@ -151,7 +144,7 @@ class Datamanager:
                                 self.timeSince(start, batch_index*len(batch_x)/ data_size)),end='')
             bleu_average = sum(bleu) / len(bleu)
             print('\nTime: {} | Total loss: {:.4f} | Bleu Score: {:.5f}'.format(self.timeSince(start,1),loss_total/batch_index,bleu_average))
-            print('-'*60)
+            print('-'*80)
             if epoch%10==0: self.evaluate(encoder,decoder,name, n=3)
             record=self.evaluate(encoder,decoder,test_name, write_file, record, n=5)
     def evaluate(self,encoder, decoder, name, write_file=None, record=0, n=5):
@@ -160,6 +153,7 @@ class Datamanager:
 
         start = time.time()
         loss=0
+        loss_n=0
         decoded_words = []
         videos = [[],[]]
         criterion = nn.CrossEntropyLoss(size_average=False)
@@ -188,24 +182,18 @@ class Datamanager:
                 words.append(ni)
 
                 target=torch.index_select(batch_y, 1, Variable(torch.LongTensor([di])).cuda()).view(-1)
-                loss += float(self.loss(criterion,decoder_output, target))
+                l, n = self.loss(criterion,decoder_output, target)
+                loss += float(l)
+                loss_n += n
 
             words= torch.cat(words,1)
-            for i in range(len(video[0])):
-                seq_list=[]
-                for j in words[i]:
-                    if j ==self.voc.word2index('EOS'): break
-                    seq_list.append(self.voc.index2word[j])
-                seq_list=' '.join(seq_list)
-                target_list=self.data[name][1][video[0][i]]
-                if (len(seq_list)!=0):
-                    bleu.append(self.BLEU(seq_list,target_list,True))
+            bleu.extend(self.bleu_batch(words, name, video[0]))
 
             decoded_words.extend(words.unsqueeze(1))
             videos[0].extend(video[0])
             videos[1].extend(video[1])
 
-            loss /= self.max_length
+            loss /= loss_n
 
             print('\r{} | [{}/{} ({:.0f}%)] |  Loss: {:.6f} | Time: {}  '.format(
                         name.upper(),
@@ -214,30 +202,24 @@ class Datamanager:
                         self.timeSince(start, batch_index*len(batch_x)/ data_size)),end='')
 
         bleu_average = sum(bleu) / len(bleu)
-        print('\nTime: {} | Bleu Score: {:.5f}'.format(self.timeSince(start,1),bleu_average))
         decoded_words=torch.cat(decoded_words,0)
+        print('\nTime: {} | Bleu Score: {:.5f}'.format(self.timeSince(start,1),bleu_average))
+        # output decoded and ground sequence
         for i in print_image:
             seq_id=videos[0].index(i)
             seq_list=[]
             for j in decoded_words[seq_id]:
-                if j ==self.voc.word2index('EOS'): break
-                seq_list.append(self.voc.index2word[j])
+                index=int(j)
+                if index ==self.voc.word2index('EOS'): break
+                seq_list.append(self.voc.index2word[index])
             d_seq=' '.join(seq_list)
             g_seq=self.data[name][1][i][videos[1][seq_id]]
             print('id: {:<25} | decoded_sequence: {}'.format(i,d_seq))
             print('    {:<25} | ground_sequence: {}'.format(' '*len(i),g_seq))
-        
+        # writing output file
         if write_file!=None and bleu_average > record:
-            with open(write_file,'w') as f:
-                for i in range(len(videos[0])):
-                    seq_list=[]
-                    for j in decoded_words[i]:
-                        if j ==self.voc.word2index('EOS'): break
-                        seq_list.append(self.voc.index2word[j])
-                    d_seq=' '.join(seq_list)
-                    f.write('{},{}\n'.format(videos[0][i],d_seq))
+            self.write(write_file,decoded_words,name,video[0])
         print('-'*80)
-
         if bleu_average>record: return bleu_average
         else: return record
     def loss(self,criterion,output,target):
@@ -245,8 +227,8 @@ class Datamanager:
         t=torch.masked_select(target,check_t).view(-1)
         check_o=check_t.view(-1,1)
         o=torch.masked_select(output,check_o).view(-1,self.vocab_size)
-        if len(t)==0: return 0
-        else : return criterion(o,t)/len(t)
+        if len(t)==0: return 0,0
+        else : return criterion(o,t),len(t)
     def timeSince(self,since, percent):
         now = time.time()
         s = now - since
@@ -257,6 +239,29 @@ class Datamanager:
         m = math.floor(s / 60)
         s -= m * 60
         return '%dm %ds' % (m, s)
+    def write(self,path,decoded_words,name,video):
+        with open(path,'w') as f:
+            for i in range(len(video)):
+                seq_list=[]
+                for j in decoded_words[i]:
+                    index=int(j)
+                    if index ==self.voc.word2index('EOS'): break
+                    seq_list.append(self.voc.index2word[index])
+                d_seq=' '.join(seq_list)
+                f.write('{},{}\n'.format(video[i],d_seq))
+    def bleu_batch(self, words, name, video):
+        bleu=[]
+        for i in range(len(video)):
+            seq_list=[]
+            for j in words[i]:
+                index=int(j)
+                if index ==self.voc.word2index('EOS'): break
+                seq_list.append(self.voc.index2word[index])
+            seq_list=' '.join(seq_list)
+            target_list=self.data[name][1][video[i]]
+            if (len(seq_list)!=0):
+                bleu.append(self.BLEU(seq_list,target_list,True))
+        return bleu
     def BLEU(self,s,t,flag = False):
         score = 0.  
         candidate = [s.strip()]
@@ -343,14 +348,17 @@ class Datamanager:
             m_w = min(m_w, m_max)
             count += m_w
         return count
+    def count_parameters(self,model):
+        return sum(p.numel() for p in model.parameters() if p.requires_grad)
 class Vocabulary:
     def __init__(self,min_count):
-        self.w2i= {"SOS":0, "EOS":1, "PAD":2, "UNK":2}
+        self.w2i= {"SOS":0, "EOS":1, "PAD":2, "UNK":3}
         self.word2count = {}
-        self.index2word = {0: "SOS", 1: "EOS", 2: "PAD", 2:"UNK"}
+        self.index2word = {0: "SOS", 1: "EOS", 2: "PAD", 3:"UNK"}
         self.n_words = 4  # Count SOS and EOS and PAD and UNK
         self.min_count=min_count
     def word2index(self,word):
+        word=word.lower()
         if word in self.w2i: return self.w2i[word]
         else: return self.w2i["UNK"]
     def addSentence(self, sentences):
@@ -379,7 +387,7 @@ class EncoderRNN(nn.Module):
     def forward(self, x):
         hidden = torch.cat([self.hidden for i in range(len(x))],1)
         output, hidden = self.rnn(x, hidden)
-        output /= torch.matmul(torch.norm(output,2,dim=2).unsqueeze(2),Variable(torch.ones(1,self.hidden_size)).cuda())
+        output = output / torch.matmul(torch.norm(output,2,dim=2).unsqueeze(2),Variable(torch.ones(1,self.hidden_size)).cuda())
         return output,  hidden
     def initHidden(self,layer_n):
         return Variable(torch.zeros(layer_n,1, self.hidden_size),requires_grad=True).cuda()
