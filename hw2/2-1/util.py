@@ -430,7 +430,7 @@ class AttnDecoderRNN(nn.Module):
     def hidden_layer(self,n):
         return  torch.cat([self.hidden for i in range(n)],1)
     def initHidden(self,layer_n):
-        return Variable(torch.zeros(1,layer_n, self.hidden_size),requires_grad=True).cuda()
+        return Variable(torch.zeros(layer_n,1, self.hidden_size),requires_grad=True).cuda()
 class VideoDataset(Dataset):
     def __init__(self, feats, captions):
         self.feats=feats
