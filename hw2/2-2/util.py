@@ -153,21 +153,20 @@ class Datamanager:
             print('\nTime: {} | Total loss: {:.4f}'.format(self.timeSince(start,1),loss_total/batch_index))
             print('-'*80)
             self.evaluate(encoder,decoder,test_name)
-    def evaluate(self,encoder, decoder, name,print_image=None):
+    def evaluate(self,encoder, decoder, name, n=5):
         encoder.eval()
         decoder.eval()
 
         start = time.time()
-        loss = 0
+        loss=0
+        loss_n=0
         decoded_words = []
         record_index = []
         criterion = nn.CrossEntropyLoss(size_average=False)
 
-        if print_image==None and self.print_image== None:
-            self.print_image=[random.choice(list(self.data[name].dataset.corpus.keys())) for i in range(5)]
-        elif print_image!=None :
-            self.print_image=print_image 
+        print_image=[random.choice(list(self.data[name][0].dataset.feats.keys())) for i in  range(n)]
 
+        data_size = len(self.data[name][0].dataset)
         for step, (batch_x, batch_y , k) in enumerate(self.data[name]):
             batch_index = step + 1
             batch_x=Variable(batch_x).cuda()
@@ -180,6 +179,7 @@ class Datamanager:
 
             words=[]
 
+
             for di in range(1,self.max_length):
                 decoder_output, decoder_hidden = decoder(
                     decoder_input, decoder_hidden, encoder_outputs)
@@ -188,22 +188,23 @@ class Datamanager:
                 words.append(ni)
  
                 target=torch.index_select(batch_y, 1, Variable(torch.LongTensor([di])).cuda()).view(-1)
-                loss += float(self.loss(criterion,decoder_output, target))
+                l, n = self.loss(criterion,decoder_output, target)
+                loss += float(l)
+                loss_n += n
 
             words = torch.cat(words,1).unsqueeze(1)
             decoded_words.extend(words)
-            loss /= self.max_length
             record_index.extend(k)
+            loss /= loss_n
             print('\rTest (On training set) | [{}/{} ({:.0f}%)] |  Loss: {:.6f} | Time: {}  '.format(
-                        batch_index*len(batch_x), self.test_data_size,
-                        100. * batch_index*len(batch_x)/ self.test_data_size, loss,
-                        self.timeSince(start, batch_index*len(batch_x)/ self.data_size)),end='')
+                        batch_index*len(batch_x), data_size,
+                        100. * batch_index*len(batch_x)/ data_size, loss,
+                        self.timeSince(start, batch_index*len(batch_x)/ data_size)),end='')
         
         print('\nTime: {} | Total loss: {:.4f}'.format(self.timeSince(start,1),loss))
         decoded_words = torch.cat(decoded_words,0)
         #print('decoded_words size: ',decoded_words.size())
-        for i in self.print_image:
-            print('i= ',i)
+        for i in print_image:
             #seq_id=self.data[name].dataset.get_id(i)
             seq_list_f = []
             seq_list_d = []
@@ -212,7 +213,6 @@ class Datamanager:
                 if j == self.voc.word2index('EOS'): break
                 seq_list_f.append(self.voc.index2word[j])
             f_seq = ' ' .join(seq_list_f[1:])
-            print('input sequence: {}'.format(f_seq))
             for j in decoded_words[i]:
                 if j == self.voc.word2index('EOS'): break
                 seq_list_d.append(self.voc.index2word[j])
@@ -221,8 +221,10 @@ class Datamanager:
                 if j == self.voc.word2index('EOS'): break
                 seq_list_g.append(self.voc.index2word[j])
             g_seq = ' '.join(seq_list_g[1:])
+            print('i= ',i)
+            print('input sequence: {}'.format(f_seq))
             print('decoded_sequence: {}'.format(d_seq))
-            print('ground_sequence: {}\n'.format(g_seq))
+            print('ground_sequence: {}'.format(g_seq))
         print('-'*60)
  
         return decoded_words
