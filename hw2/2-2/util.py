@@ -21,10 +21,8 @@ class Datamanager:
         self.vocab_size=0
         self.data_size=0
         self.test_data_size=0
-        self.test_data_labels={}
         self.max_length=0
-        self.print_image=None
-    def get_data(self,name,path,batch_size,n_dialog,stride,window,shuffle=True):
+    def get_train_data(self,name,path,batch_size,n_dialog,stride,window,shuffle=True):
         split_corpus = [[]]
         with open(path,'r',encoding='utf-8') as f :
             for line in f:
@@ -67,7 +65,16 @@ class Datamanager:
             corpus.extend(zip(feat,target))
         self.data_size = len(corpus)
         self.test_data_size = len(corpus)
-        dataset=DialogDataset(corpus)
+        dataset=DialogDataset(corpus,mode="train")
+        self.data[name]=DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+    def get_test_data(self,name,path,batch_size,shuffle=False):
+        corpus= []
+        with open(path,'r',encoding='utf-8') as f :
+            for line in f:
+                data=line.strip('\n')
+                corpus.append(self.IndexFromSentence(data,begin=False,end=False))
+        f.close()
+        dataset=DialogDataset(corpus,mode='test')
         self.data[name]=DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
     def IndexFromSentence(self,s,begin=False,end=True):
         index=[]
@@ -90,8 +97,8 @@ class Datamanager:
 
         encoder_outputs, encoder_hidden = encoder(input_variable)
 
-        decoder_hidden= decoder.hidden_layer(len(input_variable))
-        #decoder_hidden= encoder_hidden
+        #decoder_hidden= decoder.hidden_layer(len(input_variable))
+        decoder_hidden= encoder_hidden
         #print('*'*50)
         #print('target_variable size= ',target_variable.size())
         decoder_input = torch.index_select(target_variable, 1 , Variable(torch.LongTensor([0])).cuda())
@@ -152,7 +159,8 @@ class Datamanager:
                                 self.timeSince(start, batch_index*len(batch_x)/ self.data_size)),end='')
             print('\nTime: {} | Total loss: {:.4f}'.format(self.timeSince(start,1),loss_total/batch_index))
             print('-'*80)
-            self.evaluate(encoder,decoder,test_name)
+            if epoch%10==1 :self.evaluate(encoder,decoder,name,n=5)
+            self.predict(encoder,decoder,test_name,n=5)
     def evaluate(self,encoder, decoder, name, n=5):
         encoder.eval()
         decoder.eval()
@@ -164,17 +172,19 @@ class Datamanager:
         record_index = []
         criterion = nn.CrossEntropyLoss(size_average=False)
 
-        print_image=[random.choice(list(self.data[name][0].dataset.feats.keys())) for i in  range(n)]
+        print_image=[random.choice(list(range(len(self.data[name])))) for i in  range(n)]
 
-        data_size = len(self.data[name][0].dataset)
+        data_size = len(self.data[name].dataset)
         for step, (batch_x, batch_y , k) in enumerate(self.data[name]):
+
             batch_index = step + 1
             batch_x=Variable(batch_x).cuda()
             batch_y=Variable(batch_y).cuda()
 
             encoder_outputs, encoder_hidden = encoder(batch_x)
 
-            decoder_hidden= encoder_hidden 
+            #decoder_hidden= decoder.hidden_layer(len(batch_x))
+            decoder_hidden= encoder_hidden
             decoder_input=torch.index_select(batch_y, 1, Variable(torch.LongTensor([0])).cuda())
 
             words=[]
@@ -196,8 +206,8 @@ class Datamanager:
             decoded_words.extend(words)
             record_index.extend(k)
             loss /= loss_n
-            print('\rTest (On training set) | [{}/{} ({:.0f}%)] |  Loss: {:.6f} | Time: {}  '.format(
-                        batch_index*len(batch_x), data_size,
+            print('\rTest on {}ing set | [{}/{} ({:.0f}%)] |  Loss: {:.6f} | Time: {}  '.format(
+                        name,batch_index*len(batch_x), data_size,
                         100. * batch_index*len(batch_x)/ data_size, loss,
                         self.timeSince(start, batch_index*len(batch_x)/ data_size)),end='')
         
@@ -210,22 +220,86 @@ class Datamanager:
             seq_list_d = []
             seq_list_g = []
             for j in self.data[name].dataset.corpus[record_index[i]][0]:
-                if j == self.voc.word2index('EOS'): break
-                seq_list_f.append(self.voc.index2word[j])
-            f_seq = ' ' .join(seq_list_f[1:])
+                index= int(j)
+                if index == self.voc.word2index('PAD'): break
+                seq_list_f.append(self.voc.index2word[index])
+            f_seq = ' ' .join(seq_list_f[:])
             for j in decoded_words[i]:
-                if j == self.voc.word2index('EOS'): break
-                seq_list_d.append(self.voc.index2word[j])
+                index= int(j)
+                if index == self.voc.word2index('EOS'): break
+                seq_list_d.append(self.voc.index2word[index])
             d_seq = ' '.join(seq_list_d)
             for j in self.data[name].dataset.corpus[record_index[i]][1]:
-                if j == self.voc.word2index('EOS'): break
-                seq_list_g.append(self.voc.index2word[j])
+                index= int(j)
+                if index == self.voc.word2index('EOS'): break
+                seq_list_g.append(self.voc.index2word[index])
             g_seq = ' '.join(seq_list_g[1:])
             print('i= ',i)
             print('input sequence: {}'.format(f_seq))
             print('decoded_sequence: {}'.format(d_seq))
             print('ground_sequence: {}'.format(g_seq))
         print('-'*60)
+ 
+        return decoded_words
+    def predict(self,encoder, decoder, name, n=5):
+        encoder.eval()
+        decoder.eval()
+
+        start = time.time()
+        decoded_words = []
+        record_index = []
+
+        print_image=[random.choice(list(range(len(self.data[name])))) for i in  range(n)]
+        data_size = len(self.data[name].dataset)
+        for step, (batch_x, k) in enumerate(self.data[name]):
+            batch_index = step + 1
+            batch_x=Variable(batch_x).cuda()
+
+            encoder_outputs, encoder_hidden = encoder(batch_x)
+            #decoder_hidden= decoder.hidden_layer(len(batch_x))
+            decoder_hidden= encoder_hidden
+
+            decoder_input = Variable(torch.LongTensor([self.voc.word2index('SOS') for i in range(len(batch_x))]).cuda())       
+
+            words=[]
+
+
+            for di in range(1,self.max_length):
+                decoder_output, decoder_hidden = decoder(
+                    decoder_input, decoder_hidden, encoder_outputs)
+                ni = decoder_output.data.max(1,keepdim=True)[1]
+                decoder_input = Variable(ni)       
+                words.append(ni)
+
+            words = torch.cat(words,1).unsqueeze(1)
+            decoded_words.extend(words)
+            record_index.extend(k)
+            print('\rTest on {}ing set | [{}/{} ({:.0f}%)] | Time: {}  '.format(
+                        name,batch_index*len(batch_x), data_size,
+                        100. * batch_index*len(batch_x)/ data_size,
+                        self.timeSince(start, batch_index*len(batch_x)/ data_size)),end='')
+        print()
+        
+        decoded_words = torch.cat(decoded_words,0)
+        #print('decoded_words size: ',decoded_words.size())
+        for i in print_image:
+            #seq_id=self.data[name].dataset.get_id(i)
+            seq_list_f = []
+            seq_list_d = []
+            for j in self.data[name].dataset.corpus[record_index[i]]:
+                index= int(j)
+                if index == self.voc.word2index('PAD'): break
+                seq_list_f.append(self.voc.index2word[index])
+            f_seq = ' ' .join(seq_list_f[:])
+            for j in decoded_words[i]:
+                index= int(j)
+                if index == self.voc.word2index('EOS'): break
+                seq_list_d.append(self.voc.index2word[index])
+            d_seq = ' '.join(seq_list_d)
+            print('i= ',i)
+            print('input sequence: {}'.format(f_seq))
+            print('decoded_sequence: {}'.format(d_seq))
+        print('-'*80)
  
         return decoded_words
     def loss(self,criterion,output,target):
@@ -235,6 +309,11 @@ class Datamanager:
         o=torch.masked_select(output,check_o).view(-1,self.vocab_size)
         if len(t)==0: return 0,0
         else : return criterion(o,t),len(t)
+    def count(self,sen):
+        res=0
+        for i in sen.split(' '):
+            if i != 'UNK': res+=1
+        return res
     def timeSince(self,since, percent):
         now = time.time()
         s = now - since
@@ -332,14 +411,20 @@ class AttnDecoderRNN(nn.Module):
     def initHidden(self,layer_n):
         return Variable(torch.zeros(layer_n,1, self.hidden_size),requires_grad=True).cuda()
 class DialogDataset(Dataset):
-    def __init__(self,corpus):
+    def __init__(self,corpus,mode):
+        self.mode=mode
         self.corpus = corpus
     #def get_id(self,name):
         #return self.id_[name]
     def __getitem__(self, i):
-        x = self.corpus[i][0]
-        y = self.corpus[i][1]
-        return x,y,i
+        if self.mode== "train":
+            x = self.corpus[i][0]
+            y = self.corpus[i][1]
+            return x,y,i
+        elif self.mode== "test":
+            x = self.corpus[i]
+            return x,i
+        else : raise ValueError('Wrong mode.')
     def __len__(self):
         return len(self.corpus)
 
