@@ -356,8 +356,8 @@ class Datamanager:
     def count_parameters(self,model):
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
     def plot(self, record, path):
-        x=np.array(range(1,len(record)+1))
-        y=np.array(record,dtype=np.uint8)
+        x=np.array(range(1,len(record)+1),dtype=np.uint8)
+        y=np.array(record)
         plt.figure()
         plt.plot(x,y[:,0],'b',label='loss')
         plt.plot(x,y[:,1],'g',label='bleu')
