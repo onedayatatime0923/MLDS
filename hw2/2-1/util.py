@@ -110,7 +110,7 @@ class Datamanager:
         encoder_optimizer.step()
         decoder_optimizer.step()
         return float(loss)/ (self.max_length)
-    def trainIters(self,encoder, decoder, name, test_name, n_epochs, write_file , learning_rate=0.001, print_every=2):
+    def trainIters(self,encoder, decoder, name, test_name, n_epochs, write_file, plot_file, learning_rate=0.001, print_every=2):
         encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
         decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
         
@@ -151,7 +151,7 @@ class Datamanager:
             #record=self.evaluate(encoder,decoder,test_name, write_file, record, n=5)
             self.evaluate(encoder,decoder,test_name, write_file, record, n=5)
             loss_bleu_list.append([loss_total/ batch_index, bleu_average])
-        return loss_bleu_list
+            self.plot(loss_bleu_list, plot_file)
     def evaluate(self,encoder, decoder, name, write_file=None, record=0, n=5):
         encoder.eval()
         decoder.eval()
@@ -357,7 +357,7 @@ class Datamanager:
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
     def plot(self, record, path):
         x=np.array(range(1,len(record)+1))
-        y=np.array(record)
+        y=np.array(record,dtype=np.uint8)
         plt.figure()
         plt.plot(x,y[:,0],'b',label='loss')
         plt.plot(x,y[:,1],'g',label='bleu')
