@@ -13,6 +13,7 @@ import json
 import random
 import time
 import math
+import matplotlib.pyplot as plt
 assert os and np and F and math
 
 
@@ -114,9 +115,10 @@ class Datamanager:
         decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
         
         criterion = nn.CrossEntropyLoss(size_average=False)
-        teacher_forcing_ratio=F.sigmoid(torch.linspace(30,-10,n_epochs))
+        teacher_forcing_ratio=F.sigmoid(torch.linspace(30,30,n_epochs))
         data_size = len(self.data[name][0].dataset)
         record=0
+        loss_bleu_list=[]
         for epoch in range(n_epochs):
             start = time.time()
             loss_total=0
@@ -146,7 +148,10 @@ class Datamanager:
             print('\nTime: {} | Total loss: {:.4f} | Bleu Score: {:.5f}'.format(self.timeSince(start,1),loss_total/batch_index,bleu_average))
             print('-'*80)
             if epoch%10==0: self.evaluate(encoder,decoder,name, n=3)
-            record=self.evaluate(encoder,decoder,test_name, write_file, record, n=5)
+            #record=self.evaluate(encoder,decoder,test_name, write_file, record, n=5)
+            self.evaluate(encoder,decoder,test_name, write_file, record, n=5)
+            loss_bleu_list.append([loss_total/ batch_index, bleu_average])
+        return loss_bleu_list
     def evaluate(self,encoder, decoder, name, write_file=None, record=0, n=5):
         encoder.eval()
         decoder.eval()
@@ -350,6 +355,14 @@ class Datamanager:
         return count
     def count_parameters(self,model):
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
+    def plot(self, record, path):
+        x=np.array(range(1,len(record)+1))
+        y=np.array(record)
+        plt.figure()
+        plt.plot(x,y[:,0],'b',label='loss')
+        plt.plot(x,y[:,1],'g',label='bleu')
+        plt.legend()
+        plt.savefig(path)
 class Vocabulary:
     def __init__(self,min_count):
         self.w2i= {"SOS":0, "EOS":1, "PAD":2, "UNK":3}
