@@ -10,7 +10,7 @@ LAYER_N=1
 HOP_N=1
 DROPOUT=0.5
 MIN_COUNT = 3
-OUTPUT_PATH = './data/record.png'
+OUTPUT_PATH = './record.png'
 
 
 dm = Datamanager(MIN_COUNT)
