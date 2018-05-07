@@ -35,7 +35,7 @@ class Datamanager:
                     split_corpus[-1].append(data)
         f.close()
         self.vocab_size = self.voc.n_words
-        c=0
+        c=0 
         for dialog in split_corpus:
            if len(dialog) < window + stride:
                split_corpus.remove(dialog)
@@ -46,22 +46,56 @@ class Datamanager:
                    local_max+=len(dialog[i+j].split(' '))
                if local_max > c : c = local_max
         self.max_length=c+2
-        #print(self.max_length)     
-
+        #print(self.max_length)  
+        min_len = 5
+        max_len = 20  
+        cut_target = True
+        cut_feat = True
+        add_target = True
         corpus = []
-        for dialog in split_corpus:
+        ff = []
+        tt = []
+        for dialog in split_corpus:               
             feat = []
             target = []
-            for j in range(0,len(dialog)-window+1,stride):
+            if(len(dialog[0].split(' '))<min_len or len(dialog[0].split(' '))>max_len):
+                dialog = [', '*(min_len+5)]+dialog
+            if(len(dialog[-1].split(' '))<min_len or len(dialog[-1].split(' '))>max_len):
+                dialog = dialog + [', '*(min_len+5)]
+            for j in range(0,len(dialog)):
+                print('\n',dialog[j])
+                if( len(dialog[j].split(' '))<min_len or len(dialog[j].split(' '))>max_len ):
+                    print(len(feat))
+                    if cut_feat == True: 
+                        feat = feat[:-1]
+                        ff = ff[:-1]
+                    print(len(feat))
+                    add_target = False
+                    cut_feat = False 
+                    continue    
+                print('continue')
+                cut_feat = True
                 tmp = ' '.join(dialog[j:j+window])
                 feat.append(self.IndexFromSentence(tmp,begin=False,end=False))
-                target.append(self.IndexFromSentence(tmp,begin=True,end=True))
+                ff.append(tmp)
+                if add_target == True:
+                    target.append(self.IndexFromSentence(tmp,begin=True,end=True))
+                    tt.append(tmp)
+                else:
+                    add_target = True
             feat = feat[:-1]
-            target = target[1:]
-            #print('feat = ',len(feat))
-            #print('target = ',len(target))
-            #input()
-            #print('index = ',index,'\n')
+            target = target[1:]   
+            tt = tt[1:] 
+            ff = ff[:-1]        
+            
+            for i in range(min(len(ff),len(tt))):
+                print(ff[i],'||',tt[i])
+            print('---------------------------------------')
+          
+            print(len(dialog))
+            print('feat length = ',len(feat))
+            print('target length = ',len(target))
+            input()
             corpus.extend(zip(feat,target))
         self.data_size = len(corpus)
         self.test_data_size = len(corpus)
