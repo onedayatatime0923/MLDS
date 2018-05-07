@@ -4,9 +4,9 @@ import torch
 assert torch and EncoderRNN and AttnDecoderRNN
 
 EPOCHS=50
-BATCH_SIZE= 512
-HIDDEN_LAYER= 128 
-LAYER_N=1
+BATCH_SIZE= 128
+HIDDEN_LAYER= 1024
+LAYER_N=3
 HOP_N=3
 DROPOUT=0.5
 MIN_COUNT = 3

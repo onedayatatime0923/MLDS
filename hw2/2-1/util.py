@@ -151,8 +151,6 @@ class Datamanager:
             #record=self.evaluate(encoder,decoder,test_name, write_file, record, n=5)
             self.evaluate(encoder,decoder,test_name, write_file, record, n=5)
             loss_bleu_list.append([loss_total/ batch_index, bleu_average])
-            print(loss_bleu_list)
-            print(plot_file)
             self.plot(loss_bleu_list, plot_file)
     def evaluate(self,encoder, decoder, name, write_file=None, record=0, n=5):
         encoder.eval()
