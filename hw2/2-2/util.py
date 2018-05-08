@@ -1,4 +1,3 @@
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -43,60 +42,68 @@ class Datamanager:
            for i in range(0,len(dialog)-window+1,stride):
                local_max = 0
                for j in range(window):
-                   local_max+=len(dialog[i+j].split(' '))
+                   for x in dialog[i+j].split(' '):
+                       local_max+=len(x)
+                   #local_max+=len(dialog[i+j].split(' '))
                if local_max > c : c = local_max
         self.max_length=c+2
-        #print(self.max_length)  
-        min_len = 5
-        max_len = 20  
+        min_len = 10
+        max_len = 50  
         cut_target = True
         cut_feat = True
         add_target = True
         corpus = []
         ff = []
         tt = []
+        count_f=0
+        count_t=0
         for dialog in split_corpus:               
             feat = []
             target = []
+            if len(dialog)==0: continue
             if(len(dialog[0].split(' '))<min_len or len(dialog[0].split(' '))>max_len):
                 dialog = [', '*(min_len+5)]+dialog
             if(len(dialog[-1].split(' '))<min_len or len(dialog[-1].split(' '))>max_len):
                 dialog = dialog + [', '*(min_len+5)]
             for j in range(0,len(dialog)):
-                print('\n',dialog[j])
+                #print('\n',dialog[j])
                 if( len(dialog[j].split(' '))<min_len or len(dialog[j].split(' '))>max_len ):
-                    print(len(feat))
+                    #print(len(feat))
                     if cut_feat == True: 
                         feat = feat[:-1]
-                        ff = ff[:-1]
-                    print(len(feat))
+                        #ff = ff[:-1]
+                    #print(len(feat))
                     add_target = False
                     cut_feat = False 
                     continue    
-                print('continue')
+                #print('continue')
                 cut_feat = True
                 tmp = ' '.join(dialog[j:j+window])
                 feat.append(self.IndexFromSentence(tmp,begin=False,end=False))
                 ff.append(tmp)
                 if add_target == True:
                     target.append(self.IndexFromSentence(tmp,begin=True,end=True))
-                    tt.append(tmp)
+                    #tt.append(tmp)
                 else:
                     add_target = True
             feat = feat[:-1]
             target = target[1:]   
-            tt = tt[1:] 
-            ff = ff[:-1]        
-            
-            for i in range(min(len(ff),len(tt))):
-                print(ff[i],'||',tt[i])
-            print('---------------------------------------')
+            #tt = tt[1:] 
+            #ff = ff[:-1]        
+            count_f+=len(feat)
+            count_t+=len(target)
+            #for i in range(min(len(ff),len(tt))):
+                #print(ff[i],'||',tt[i])
+            #print('---------------------------------------')
           
-            print(len(dialog))
+            #print(len(dialog))
             print('feat length = ',len(feat))
             print('target length = ',len(target))
-            input()
-            corpus.extend(zip(feat,target))
+            #input()
+            if len(feat)!=0 : corpus.extend(zip(feat,target))
+        print('feat length = ',count_f)
+        print('target length = ',count_t)
+        #input()
         self.data_size = len(corpus)
         self.test_data_size = len(corpus)
         dataset=DialogDataset(corpus,mode="train")
@@ -113,7 +120,10 @@ class Datamanager:
     def IndexFromSentence(self,s,begin=False,end=True):
         index=[]
         if begin: index.append(self.voc.word2index('SOS'))
-        index.extend([self.voc.word2index(word) for word in s.split(' ')])
+        for word in s.split():
+            for x in word: 
+                index.append(self.voc.word2index(x))
+        #index.extend([self.voc.word2index(word) for word in s.split(' ')])
         if end: index.append(self.voc.word2index('EOS'))
         if len(index)< self.max_length : 
             index.extend([self.voc.word2index('PAD') for i in range(self.max_length - len(index))])
@@ -125,9 +135,8 @@ class Datamanager:
         encoder_optimizer.zero_grad()
         decoder_optimizer.zero_grad()
 
-        loss = torch.cuda.FloatTensor([0])
+        loss = Variable(torch.cuda.FloatTensor([0]),requires_grad=True)
         loss_n = 0
-
 
         encoder_outputs, encoder_hidden = encoder(input_variable)
 
@@ -147,7 +156,10 @@ class Datamanager:
                 decoder_input=torch.index_select(target_variable, 1, Variable(torch.LongTensor([di])).cuda())
                 target=decoder_input.view(-1)
                 l,n = self.loss(criterion,decoder_output, target)
+                #print('l = ',l)
+                #print('loss =',loss)
                 loss = loss + l
+                
                 loss_n += n
             else:
                 # Without teacher forcing: use its own predictions as the next input
@@ -163,11 +175,18 @@ class Datamanager:
         loss.backward()
         encoder_optimizer.step()
         decoder_optimizer.step()
+        #scheduler_encoder.step(float(loss.data))
+        #scheduler_decoder.step(float(loss.data))
         return float(loss)
     def trainIters(self,encoder, decoder, name, test_name, n_epochs, learning_rate=0.001, print_every=2, plot_every=100):
         encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
         decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
-        
+        #encoder_optimizer = optim.SGD(encoder.parameters(), lr=0.001, momentum=0.9)
+        #decoder_optimizer = optim.SGD(decoder.parameters(), lr=0.001, momentum=0.9)
+        #scheduler_encoder = optim.lr_scheduler.ReduceLROnPlateau(encoder_optimizer, 'min')
+        #scheduler_decoder = optim.lr_scheduler.ReduceLROnPlateau(decoder_optimizer, 'min')        
+
+
         criterion = nn.CrossEntropyLoss(size_average=False)
         teacher_forcing_ratio=F.sigmoid(torch.linspace(30,-10,n_epochs))
         for epoch in range(1, n_epochs+ 1):
@@ -180,7 +199,8 @@ class Datamanager:
                 batch_y=Variable(batch_y).cuda()
 
 
-                loss = self.train(batch_x, batch_y, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, teacher_forcing_ratio=teacher_forcing_ratio[epoch])
+                loss = self.train(batch_x, batch_y, encoder, decoder, encoder_optimizer, decoder_optimizer,\
+                         criterion, teacher_forcing_ratio=teacher_forcing_ratio[epoch])
                 # loss
                 loss_total+=loss
 
@@ -364,12 +384,20 @@ class Vocabulary:
         self.word2count = {}
         self.index2word = {0: "SOS", 1: "EOS", 2: "PAD", 3:"UNK"}
         self.n_words = 4  # Count SOS and EOS and PAD and UNK
-        self.min_count=min_count
+        self.min_count = min_count
     def word2index(self,word):
         if word in self.w2i: return self.w2i[word]
         else: return self.w2i["UNK"]
     def addSentence(self, sentence):
-        sentence_list = sentence.split()
+        a = sentence.split()
+        #print(sentence_list)
+        #input()
+        sentence_list = []
+        for x in a:
+            for y in x:
+                sentence_list.append(y)
+        #print(sentence_list)
+        #input()
         for word in sentence_list:
             self.addWord(word)
         max_sen = len(sentence_list)
