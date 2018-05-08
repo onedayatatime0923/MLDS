@@ -351,8 +351,6 @@ class Vocabulary:
         self.index2word = {0: "SOS", 1: "EOS", 2: "PAD", 3:"UNK"}
         self.n_words = 4  # Count SOS and EOS and PAD and UNK
         self.min_count = min_count
-        print(min_count)
-        input()
     def word2index(self,word):
         if word in self.w2i: return self.w2i[word]
         else: return self.w2i["UNK"]
