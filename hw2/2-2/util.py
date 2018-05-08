@@ -108,7 +108,7 @@ class Datamanager:
         decoder_input = torch.index_select(target_variable, 1 , Variable(torch.LongTensor([0])).cuda())
         #print('decoder_input size= ',decoder_input.size())
         #print('start decoding ...')
-        for di in range(1,self.max_length):
+        for di in range(1,self.max_len):
             decoder_output, decoder_hidden= decoder(
                 decoder_input, decoder_hidden, encoder_outputs)
             use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
@@ -206,7 +206,7 @@ class Datamanager:
             words=[]
 
 
-            for di in range(1,self.max_length):
+            for di in range(1,self.max_len):
                 decoder_output, decoder_hidden = decoder(
                     decoder_input, decoder_hidden, encoder_outputs)
                 ni = decoder_output.data.max(1,keepdim=True)[1]
@@ -280,7 +280,7 @@ class Datamanager:
             words=[]
 
 
-            for di in range(1,self.max_length):
+            for di in range(1,self.max_len):
                 decoder_output, decoder_hidden = decoder(
                     decoder_input, decoder_hidden, encoder_outputs)
                 ni = decoder_output.data.max(1,keepdim=True)[1]
