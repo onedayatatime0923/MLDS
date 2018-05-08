@@ -24,7 +24,7 @@ dm.get_test_data('test','./data/test_input.txt',batch_size=BATCH_SIZE,shuffle=Fa
 print('\rreading data...finished')
 print('Vocabulary size: {}'.format(dm.vocab_size))
 print('Max Length: {}'.format(dm.max_len))
-input()
+#input()
 
 encoder=EncoderRNN(HIDDEN_LAYER,dm.vocab_size,NUM_LAYER, DROPOUT).cuda()
 #torch.save(encoder,'encoder.pt')

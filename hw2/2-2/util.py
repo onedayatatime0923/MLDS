@@ -86,8 +86,8 @@ class Datamanager:
                 index.append(self.voc.word2index(x))
         #index.extend([self.voc.word2index(word) for word in s.split(' ')])
         if end: index.append(self.voc.word2index('EOS'))
-        if len(index)< self.max_len: 
-            index.extend([self.voc.word2index('PAD') for i in range(self.max_len- len(index))])
+        if len(index)< self.max_len +2: 
+            index.extend([self.voc.word2index('PAD') for i in range(self.max_len +2- len(index))])
         index = torch.LongTensor(index)
         return index
     def train(self,input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, teacher_forcing_ratio=1):
