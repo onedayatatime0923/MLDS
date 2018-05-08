@@ -6,67 +6,106 @@ from torch.autograd import Variable
 from torch import optim
 import os
 import numpy as np
-import json ,random ,time ,math, sys
+import json
+import random
+import time
+import math
 assert os and np and F and math and json
  
 
 class Datamanager:
-    def __init__(self,min_count, max_len, min_len):
+    def __init__(self,min_count):
         self.voc=Vocabulary(min_count)
         self.data={}
         self.vocab_size=0
-        self.max_len= max_len
-        self.min_len= min_len
-    def get_train_data(self,name,path,n_dialog, batch_size,shuffle=True):
+        self.data_size=0
+        self.test_data_size=0
+        self.max_length=0
+    def get_train_data(self,name,path,batch_size,n_dialog,stride,window,shuffle=True):
         split_corpus = [[]]
         with open(path,'r',encoding='utf-8') as f :
-            c = 0
             for line in f:
-                print('\rreading dialog...{}'.format(c),end='')
-                sys.stdout.flush()
                 data=line.strip('\n')
                 if(data=='+++$+++'): 
-                    if len(split_corpus) == n_dialog: break
                     split_corpus.append([])
-                    c+=1
+                    if len(split_corpus)+1== n_dialog: break
                 else:
                     self.voc.addSentence(data) 
                     split_corpus[-1].append(data)
-        print('\rreading dialog...finished')
         f.close()
         self.vocab_size = self.voc.n_words
-        corpus= []
-        c = 0
+        c=0 
+        for dialog in split_corpus:
+           if len(dialog) < window + stride:
+               split_corpus.remove(dialog)
+               continue
+           for i in range(0,len(dialog)-window+1,stride):
+               local_max = 0
+               for j in range(window):
+                   for x in dialog[i+j].split(' '):
+                       local_max+=len(x)
+                   #local_max+=len(dialog[i+j].split(' '))
+               if local_max > c : c = local_max
+        self.max_length=c+2
+        min_len = 10
+        max_len = 50  
+        cut_target = True
+        cut_feat = True
+        add_target = True
+        corpus = []
+        ff = []
+        tt = []
+        count_f=0
+        count_t=0
         for dialog in split_corpus:               
-            print('\rpreprocess dialog...{}'.format(c),end='')
-            sys.stdout.flush()
-            c+=1
             feat = []
             target = []
-            if len(dialog)<2:
-                continue
-            if (self.filter(dialog[0]) and self.filter(dialog[1])):
-                feat.append(self.IndexFromSentence(dialog[0],begin=False,end=False))
-            #print(dialog[0])
-            for j in range(1,len(dialog)-1):
-                #print(dialog[j])
-                if (self.filter(dialog[j]) and self.filter(dialog[j+1])):
-                    feat.append(self.IndexFromSentence(dialog[j],begin=False,end=False))
-                if (self.filter(dialog[j-1]) and self.filter(dialog[j])):
-                    target.append(self.IndexFromSentence(dialog[j],begin=True,end=True))
-            #print(dialog[-1])
-            if (self.filter(dialog[-1]) and self.filter(dialog[-2])):
-                target.append(self.IndexFromSentence(dialog[-1],begin=True,end=True))
-            #print(len(feat),len(ff))
-            #print(len(target),len(tt))
-            #for i in range(len(feat)):
+            if len(dialog)==0: continue
+            if(len(dialog[0].split(' '))<min_len or len(dialog[0].split(' '))>max_len):
+                dialog = [', '*(min_len+5)]+dialog
+            if(len(dialog[-1].split(' '))<min_len or len(dialog[-1].split(' '))>max_len):
+                dialog = dialog + [', '*(min_len+5)]
+            for j in range(0,len(dialog)):
+                #print('\n',dialog[j])
+                if( len(dialog[j].split(' '))<min_len or len(dialog[j].split(' '))>max_len ):
+                    #print(len(feat))
+                    if cut_feat == True: 
+                        feat = feat[:-1]
+                        #ff = ff[:-1]
+                    #print(len(feat))
+                    add_target = False
+                    cut_feat = False 
+                    continue    
+                #print('continue')
+                cut_feat = True
+                tmp = ' '.join(dialog[j:j+window])
+                feat.append(self.IndexFromSentence(tmp,begin=False,end=False))
+                ff.append(tmp)
+                if add_target == True:
+                    target.append(self.IndexFromSentence(tmp,begin=True,end=True))
+                    #tt.append(tmp)
+                else:
+                    add_target = True
+            feat = feat[:-1]
+            target = target[1:]   
+            #tt = tt[1:] 
+            #ff = ff[:-1]        
+            count_f+=len(feat)
+            count_t+=len(target)
+            #for i in range(min(len(ff),len(tt))):
                 #print(ff[i],'||',tt[i])
             #print('---------------------------------------')
-            #print('feat length = ',len(feat))
-            #print('target length = ',len(target))
+          
+            #print(len(dialog))
+            print('feat length = ',len(feat))
+            print('target length = ',len(target))
             #input()
-            corpus.extend(zip(feat,target))
-        print('\rpreprocess dialog...finished')
+            if len(feat)!=0 : corpus.extend(zip(feat,target))
+        print('feat length = ',count_f)
+        print('target length = ',count_t)
+        #input()
+        self.data_size = len(corpus)
+        self.test_data_size = len(corpus)
         dataset=DialogDataset(corpus,mode="train")
         self.data[name]=DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
     def get_test_data(self,name,path,batch_size,shuffle=False):
@@ -86,8 +125,8 @@ class Datamanager:
                 index.append(self.voc.word2index(x))
         #index.extend([self.voc.word2index(word) for word in s.split(' ')])
         if end: index.append(self.voc.word2index('EOS'))
-        if len(index)< self.max_len: 
-            index.extend([self.voc.word2index('PAD') for i in range(self.max_len- len(index))])
+        if len(index)< self.max_length : 
+            index.extend([self.voc.word2index('PAD') for i in range(self.max_length - len(index))])
         index = torch.LongTensor(index)
         return index
     def train(self,input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, teacher_forcing_ratio=1):
@@ -169,10 +208,9 @@ class Datamanager:
                     print_loss_avg = (loss_total - print_loss_total )/ print_every
                     print_loss_total = loss_total
                     print('\rTrain Epoch: {} | [{}/{} ({:.0f}%)] |  Loss: {:.6f} | Time: {}  '.format(
-                                epoch , batch_index*len(batch_x), len(self.data[name].dataset),
-                                100. * batch_index*len(batch_x)/ len(self.data[name].dataset),
-                                print_loss_avg,
-                                self.timeSince(start, batch_index*len(batch_x)/ len(self.data[name].dataset))),end='')
+                                epoch , batch_index*len(batch_x), self.data_size,
+                                100. * batch_index*len(batch_x)/ self.data_size, print_loss_avg,
+                                self.timeSince(start, batch_index*len(batch_x)/ self.data_size)),end='')
             print('\nTime: {} | Total loss: {:.4f}'.format(self.timeSince(start,1),loss_total/batch_index))
             print('-'*80)
             if epoch%10==1 :self.evaluate(encoder,decoder,name,n=5)
@@ -340,10 +378,6 @@ class Datamanager:
         m = math.floor(s / 60)
         s -= m * 60
         return '%dm %ds' % (m, s)
-    def filter(self,sen ):
-        l= len(sen.replace(' ',''))
-        if(l > self.min_len and  l < self.max_len): return True
-        else: return False
 class Vocabulary:
     def __init__(self,min_count):
         self.w2i= {"SOS":0, "EOS":1, "PAD":2, "UNK":3}
@@ -351,17 +385,19 @@ class Vocabulary:
         self.index2word = {0: "SOS", 1: "EOS", 2: "PAD", 3:"UNK"}
         self.n_words = 4  # Count SOS and EOS and PAD and UNK
         self.min_count = min_count
-        print(min_count)
-        input()
     def word2index(self,word):
         if word in self.w2i: return self.w2i[word]
         else: return self.w2i["UNK"]
     def addSentence(self, sentence):
         a = sentence.split()
+        #print(sentence_list)
+        #input()
         sentence_list = []
         for x in a:
             for y in x:
                 sentence_list.append(y)
+        #print(sentence_list)
+        #input()
         for word in sentence_list:
             self.addWord(word)
         max_sen = len(sentence_list)

@@ -115,7 +115,7 @@ class Datamanager:
         decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
         
         criterion = nn.CrossEntropyLoss(size_average=False)
-        teacher_forcing_ratio=F.sigmoid(torch.linspace(30,30,n_epochs))
+        teacher_forcing_ratio=F.sigmoid(torch.linspace(30,-5,n_epochs))
         data_size = len(self.data[name][0].dataset)
         record=0
         loss_bleu_list=[]
@@ -363,6 +363,7 @@ class Datamanager:
         plt.plot(x,y[:,1],'g',label='bleu')
         plt.legend()
         plt.savefig(path)
+        plt.close()
 class Vocabulary:
     def __init__(self,min_count):
         self.w2i= {"SOS":0, "EOS":1, "PAD":2, "UNK":3}

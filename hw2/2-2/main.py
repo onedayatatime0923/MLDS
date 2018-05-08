@@ -10,21 +10,21 @@ HIDDEN_LAYER =  512
 NUM_LAYER = 2
 NUM_HOP = 3
 DROPOUT=0.5
-#NUM_DIALOG = 1000
+NUM_DIALOG = 1000
 NUM_DIALOG = 56524
-STRIDE = 1
-WINDOW = 1
+MAX_LENGTH = 30
+MIN_LENGTH = 2
 MIN_COUNT = 1
-MIN_LENGTH = 5
 
-dm = Datamanager(MIN_COUNT)
-print('reading data...',end='')
+dm = Datamanager(MIN_COUNT, MAX_LENGTH, MIN_LENGTH)
+print('reading data...')
 sys.stdout.flush()
-dm.get_train_data('train','./data/clr_conversation.txt',batch_size=BATCH_SIZE,n_dialog=NUM_DIALOG,stride=STRIDE,window=WINDOW,shuffle=True)
+dm.get_train_data('train','./data/clr_conversation.txt',n_dialog=NUM_DIALOG, batch_size= BATCH_SIZE, shuffle=True)
 dm.get_test_data('test','./data/test_input.txt',batch_size=BATCH_SIZE,shuffle=False)
 print('\rreading data...finished')
 print('Vocabulary size: {}'.format(dm.vocab_size))
-print('Max Length: {}'.format(dm.max_length))
+print('Max Length: {}'.format(dm.max_len))
+input()
 
 encoder=EncoderRNN(HIDDEN_LAYER,dm.vocab_size,NUM_LAYER, DROPOUT).cuda()
 #torch.save(encoder,'encoder.pt')
