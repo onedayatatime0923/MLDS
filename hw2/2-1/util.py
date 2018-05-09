@@ -54,6 +54,18 @@ class Datamanager:
         else : raise ValueError('Wrong mode.')
         dataset=VideoDataset(feats,captions_id)
         self.data[name]= [DataLoader(dataset, batch_size=batch_size, shuffle=shuffle), captions_str]
+    def get_test_data(self,name,f_path,max_length, batch_size,shuffle=False):
+        # self.data[name]=dataloader
+        feats={}
+        for i in os.listdir(f_path):
+            if not i.startswith('.'):
+                x=torch.FloatTensor(np.load('{}/{}'.format(f_path,i)))
+                feats[i[:-4]]=x
+
+        self.max_length = max_length
+
+        dataset=VideoDataset(feats)
+        self.data[name]= DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
     def IndexFromSentence(self,sentences,begin=False,end=True):
         indexes=[]
         for s in sentences:
@@ -227,6 +239,52 @@ class Datamanager:
         print('-'*80)
         if bleu_average>record: return bleu_average
         else: return record
+    def predict(self,encoder, decoder, name, write_file=None):
+        encoder.eval()
+        decoder.eval()
+
+        start = time.time()
+        decoded_words = []
+        videos = [[],[]]
+
+        data_size = len(self.data[name].dataset)
+        for step, (batch_x,video) in enumerate(self.data[name]):
+            batch_index=step+1
+            batch_x=Variable(batch_x).cuda()
+
+            encoder_outputs, encoder_hidden = encoder(batch_x)
+
+            decoder_hidden= encoder_hidden
+            decoder_input = Variable(torch.LongTensor([self.voc.word2index('SOS') for i in range(len(batch_x))]).cuda())       
+
+            words=[]
+
+            for di in range(1,self.max_length):
+                decoder_output, decoder_hidden = decoder(
+                    decoder_input, decoder_hidden, encoder_outputs)
+                ni = decoder_output.data.max(1,keepdim=True)[1]
+                decoder_input = Variable(ni)
+                words.append(ni)
+
+            print(words)
+            words= torch.cat(words,1)
+            decoded_words.extend(words.unsqueeze(1))
+            videos[0].extend(video[0])
+            videos[1].extend(video[1])
+
+
+            print('\r{} | [{}/{} ({:.0f}%)] | Time: {}  '.format(
+                        name.upper(),
+                        batch_index*len(batch_x), data_size,
+                        100. * batch_index*len(batch_x)/ data_size,
+                        self.timeSince(start, batch_index*len(batch_x)/ data_size)),end='')
+
+        decoded_words=torch.cat(decoded_words,0)
+        print('\nTime: {}  '.format(self.timeSince(start,1)))
+        # writing output file
+        if write_file!=None:
+            self.write(write_file,decoded_words,name,video[0])
+        print('-'*80)
     def loss(self,criterion,output,target):
         check_t=(target!=self.voc.word2index("PAD"))
         t=torch.masked_select(target,check_t).view(-1)
@@ -446,18 +504,24 @@ class AttnDecoderRNN(nn.Module):
     def initHidden(self,layer_n):
         return Variable(torch.zeros(layer_n,1, self.hidden_size),requires_grad=True).cuda()
 class VideoDataset(Dataset):
-    def __init__(self, feats, captions):
+    def __init__(self, feats, captions=None):
         self.feats=feats
         self.captions=captions
         index=[]
-        for i in captions:
-            index.extend([(i,j) for j in range(len(captions[i]))])
+        if captions != None:
+            for i in captions:
+                index.extend([(i,j) for j in range(len(captions[i]))])
+        else :
+            index.extend([(i,0) for i in feats])
         self.index=index
         #print(len(index))
     def __getitem__(self, i):
         x=self.feats[self.index[i][0]]
         #x+=torch.normal(torch.zeros_like(x),0.1)
-        y=self.captions[self.index[i][0]][self.index[i][1]]
-        return x,y,self.index[i]
+        if self.captions != None:
+            y=self.captions[self.index[i][0]][self.index[i][1]]
+            return x,y,self.index[i]
+        else :
+            return x,self.index[i]
     def __len__(self):
         return len(self.index)
