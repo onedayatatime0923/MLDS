@@ -312,11 +312,13 @@ class Datamanager:
         if path == None : return None
         with open(path, 'w') as f:
             for i in range(len(decoded_words)):
+                seq_list=[]
                 for j in decoded_words[i]:
                     index= int(j)
                     if index == self.voc.word2index('EOS'): break
-                    seq_list_d.append(self.voc.index2word[index])
-                f.write(' \n'.join(seq_list_d))
+                    seq_list.append(self.voc.index2word[index])
+                f.write('{}\n'.format(' '.join(seq_list)))
+        input()
         print('-'*80)
         return decoded_words
     def loss(self,criterion,output,target):
