@@ -72,7 +72,7 @@ class Datamanager:
         encoder_optimizer.zero_grad()
         decoder_optimizer.zero_grad()
 
-        loss = torch.cuda.FloatTensor([0])
+        loss = Variable(torch.cuda.FloatTensor([0]).cuda())
         loss_n = 0
 
         encoder_outputs, encoder_hidden = encoder(input_variable)
