@@ -17,6 +17,7 @@ NUM_PAIR = None
 MAX_LENGTH = 15
 MIN_LENGTH = 2
 MIN_COUNT = 10
+OUTPUT_FILE = './output.txt'
 
 dm = Datamanager(MIN_COUNT, MAX_LENGTH, MIN_LENGTH)
 print('reading data...')
@@ -36,7 +37,7 @@ decoder=AttnDecoderRNN(HIDDEN_LAYER,dm.vocab_size,NUM_LAYER, NUM_HOP, DROPOUT).c
 print('finish establishing decoder ...')
 
 print('start training ...')
-dm.trainIters(encoder, decoder, 'train', 'test', EPOCHS)
+dm.trainIters(encoder, decoder, 'train', 'test', EPOCHS, OUTPUT_FILE)
 torch.save(encoder,'encoder.pt')
 torch.save(decoder,'decoder.pt')
 
