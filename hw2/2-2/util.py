@@ -17,14 +17,14 @@ class Datamanager:
         self.vocab_size=0
         self.max_len= max_len
         self.min_len= min_len
-    def get_train_data(self,name,path,n_dialog, batch_size,shuffle=True):
+    def get_train_data(self,name,path,n_dialog, n_pair= None, batch_size= 100,shuffle=True):
         split_corpus = [[]]
         with open(path,'r',encoding='utf-8') as f :
             c = 0
             for line in f:
                 print('\rreading dialog...{}'.format(c),end='')
                 sys.stdout.flush()
-                data=line.strip('\n')
+                data=line.replace('\n','')
                 if(data=='+++$+++'): 
                     if len(split_corpus) == n_dialog: break
                     split_corpus.append([])
@@ -66,6 +66,7 @@ class Datamanager:
             #print('target length = ',len(target))
             #input()
             corpus.extend(zip(feat,target))
+        if n_pair != None: corpus=corpus[:n_pair]
         print('\rpreprocess dialog...finished')
         print('corpus length = ',len(corpus))
         dataset=DialogDataset(corpus,mode="train")
@@ -79,16 +80,15 @@ class Datamanager:
         f.close()
         dataset=DialogDataset(corpus,mode='test')
         self.data[name]=DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
-    def IndexFromSentence(self,s,begin=False,end=True):
+    def IndexFromSentence(self, sen,begin=True,end=True):
         index=[]
         if begin: index.append(self.voc.word2index('SOS'))
-        for word in s.split():
-            for x in word: 
-                index.append(self.voc.word2index(x))
+        words= sen.split()
+        index.extend([self.voc.word2index(words[i]) for i in range(len(words)) if i < self.max_len])
         #index.extend([self.voc.word2index(word) for word in s.split(' ')])
         if end: index.append(self.voc.word2index('EOS'))
-        if len(index)< self.max_len +2: 
-            index.extend([self.voc.word2index('PAD') for i in range(self.max_len +2- len(index))])
+        if len(index)< self.max_len +int(begin)+ int(end): 
+            index.extend([self.voc.word2index('PAD') for i in range(self.max_len +int(begin)+ int(end)- len(index))])
         index = torch.LongTensor(index)
         return index
     def train(self,input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, teacher_forcing_ratio=1):
@@ -138,13 +138,13 @@ class Datamanager:
         encoder_optimizer.step()
         decoder_optimizer.step()
         return float(loss)
-    def trainIters(self,encoder, decoder, name, test_name, n_epochs, learning_rate=0.001, print_every=2, plot_every=100):
+    def trainIters(self,encoder, decoder, name, test_name, n_epochs, learning_rate=0.001, print_every=2, plot_every=100, output_path='./ouput.txt'):
         encoder_optimizer = optim.RMSprop(encoder.parameters(), lr=learning_rate)
         decoder_optimizer = optim.RMSprop(decoder.parameters(), lr=learning_rate)
 
 
         criterion = nn.CrossEntropyLoss(size_average=False)
-        teacher_forcing_ratio=F.sigmoid(torch.linspace(30,-10,n_epochs))
+        teacher_forcing_ratio=F.sigmoid(torch.linspace(30,10,n_epochs))
         for epoch in range(1, n_epochs+ 1):
             start = time.time()
             loss_total=0
@@ -170,8 +170,8 @@ class Datamanager:
                                 self.timeSince(start, batch_index*len(batch_x)/ len(self.data[name].dataset))),end='')
             print('\nTime: {} | Total loss: {:.4f}'.format(self.timeSince(start,1),loss_total/batch_index))
             print('-'*80)
-            if epoch%10==1 :self.evaluate(encoder,decoder,name,n=5)
-            self.predict(encoder,decoder,test_name,n=5)
+            if epoch%5==1 :self.evaluate(encoder,decoder,name,n=5)
+            self.predict(encoder,decoder,test_name,n=5, path= output_path)
     def evaluate(self,encoder, decoder, name, n=5):
         encoder.eval()
         decoder.eval()
@@ -216,13 +216,12 @@ class Datamanager:
             words = torch.cat(words,1).unsqueeze(1)
             decoded_words.extend(words)
             record_index.extend(k)
-            loss /= loss_n
             print('\rTest on {}ing set | [{}/{} ({:.0f}%)] |  Loss: {:.6f} | Time: {}  '.format(
                         name,batch_index*len(batch_x), data_size,
-                        100. * batch_index*len(batch_x)/ data_size, loss,
+                        100. * batch_index*len(batch_x)/ data_size, loss / loss_n,
                         self.timeSince(start, batch_index*len(batch_x)/ data_size)),end='')
         
-        print('\nTime: {} | Total loss: {:.4f}'.format(self.timeSince(start,1),loss))
+        print('\nTime: {} | Total loss: {:.4f}'.format(self.timeSince(start,1),loss / loss_n))
         decoded_words = torch.cat(decoded_words,0)
         #print('decoded_words size: ',decoded_words.size())
         for i in print_image:
@@ -252,7 +251,7 @@ class Datamanager:
         print('-'*60)
  
         return decoded_words
-    def predict(self,encoder, decoder, name, n=5):
+    def predict(self,encoder, decoder, name, n=5, path= None):
         encoder.eval()
         decoder.eval()
 
@@ -311,7 +310,14 @@ class Datamanager:
             print('input sequence: {}'.format(f_seq))
             print('decoded_sequence: {}'.format(d_seq))
         print('-'*80)
- 
+        if path == None : return None
+        with open(path, 'w') as f:
+            for i in range(len(decoded_words)):
+                for j in decoded_words[i]:
+                    index= int(j)
+                    if index == self.voc.word2index('EOS'): break
+                    seq_list_d.append(self.voc.index2word[index])
+                f.write(' '.join(seq_list_d))
         return decoded_words
     def loss(self,criterion,output,target):
         check_t=(target!=self.voc.word2index("PAD"))
@@ -336,7 +342,7 @@ class Datamanager:
         s -= m * 60
         return '%dm %ds' % (m, s)
     def filter(self,sen ):
-        l= len(sen.replace(' ',''))
+        l= len(sen.split())
         if(l > self.min_len and  l < self.max_len): return True
         else: return False
 class Vocabulary:
@@ -350,11 +356,13 @@ class Vocabulary:
         if word in self.w2i: return self.w2i[word]
         else: return self.w2i["UNK"]
     def addSentence(self, sentence):
-        a = sentence.split()
+        sentence_list = sentence.split()
+        '''
         sentence_list = []
         for x in a:
             for y in x:
                 sentence_list.append(y)
+        '''
         for word in sentence_list:
             self.addWord(word)
         max_sen = len(sentence_list)

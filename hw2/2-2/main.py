@@ -5,21 +5,22 @@ import sys
 assert torch and EncoderRNN and AttnDecoderRNN
 
 EPOCHS = 200
-BATCH_SIZE = 200
-HIDDEN_LAYER =  512
+BATCH_SIZE = 100
+HIDDEN_LAYER = 1024
 NUM_LAYER = 2
-NUM_HOP = 3
+NUM_HOP = 1
 DROPOUT = 0.5
-#NUM_DIALOG = 100
 NUM_DIALOG = 56524
-MAX_LENGTH = 50
-MIN_LENGTH = 13
-MIN_COUNT = 1
+NUM_DIALOG = 10000
+NUM_PAIR = 65536
+MAX_LENGTH = 10
+MIN_LENGTH = 2
+MIN_COUNT = 10
 
 dm = Datamanager(MIN_COUNT, MAX_LENGTH, MIN_LENGTH)
 print('reading data...')
 sys.stdout.flush()
-dm.get_train_data('train','./data/clr_conversation.txt',n_dialog=NUM_DIALOG, batch_size= BATCH_SIZE, shuffle=True)
+dm.get_train_data('train','./data/clr_conversation.txt',n_dialog=NUM_DIALOG, n_pair= NUM_PAIR, batch_size= BATCH_SIZE, shuffle=True)
 dm.get_test_data('test','./data/test_input.txt',batch_size=BATCH_SIZE,shuffle=False)
 print('\rreading data...finished')
 print('Vocabulary size: {}'.format(dm.vocab_size))
