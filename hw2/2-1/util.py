@@ -54,15 +54,14 @@ class Datamanager:
         else : raise ValueError('Wrong mode.')
         dataset=VideoDataset(feats,captions_id)
         self.data[name]= [DataLoader(dataset, batch_size=batch_size, shuffle=shuffle), captions_str]
-    def get_test_data(self,name,f_path,max_length, batch_size,shuffle=False):
+    def get_test_data(self,name,f_path, max_length, batch_size,shuffle=False):
         # self.data[name]=dataloader
         feats={}
         for i in os.listdir(f_path):
             if not i.startswith('.'):
                 x=torch.FloatTensor(np.load('{}/{}'.format(f_path,i)))
                 feats[i[:-4]]=x
-
-        self.max_length = max_length
+        self.max_length= max_length
 
         dataset=VideoDataset(feats)
         self.data[name]= DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
@@ -266,7 +265,6 @@ class Datamanager:
                 decoder_input = Variable(ni)
                 words.append(ni)
 
-            print(words)
             words= torch.cat(words,1)
             decoded_words.extend(words.unsqueeze(1))
             videos[0].extend(video[0])
@@ -449,7 +447,20 @@ class Vocabulary:
             self.w2i[word] = self.n_words
             self.index2word[self.n_words] = word
             self.n_words += 1
-
+    def save(self, path):
+        index_list= sorted( self.w2i , key= self.w2i.get)
+        with open( path, 'w') as f:
+            f.write('\n'.join(index_list))
+    def load(self, path):
+        with open(path,'r') as f:
+            i=0
+            for line in f:
+                word=line.replace('\n','')
+                self.w2i[word] = i
+                self.word2count[word]=0
+                self.index2word[i] = word
+                i+=1
+            self.n_words=len(self.w2i)
 class EncoderRNN(nn.Module):
     def __init__(self,input_size, hidden_size, layer_n, dropout=0.3):
         super(EncoderRNN, self).__init__()
