@@ -318,7 +318,6 @@ class Datamanager:
                     if index == self.voc.word2index('EOS'): break
                     seq_list.append(self.voc.index2word[index])
                 f.write('{}\n'.format(' '.join(seq_list)))
-        input()
         print('-'*80)
         return decoded_words
     def loss(self,criterion,output,target):
