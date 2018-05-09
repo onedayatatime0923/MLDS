@@ -67,6 +67,7 @@ class Datamanager:
             #input()
             corpus.extend(zip(feat,target))
         print('\rpreprocess dialog...finished')
+        print('corpus length = ',len(corpus))
         dataset=DialogDataset(corpus,mode="train")
         self.data[name]=DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
     def get_test_data(self,name,path,batch_size,shuffle=False):
@@ -136,16 +137,10 @@ class Datamanager:
         loss.backward()
         encoder_optimizer.step()
         decoder_optimizer.step()
-        #scheduler_encoder.step(float(loss.data))
-        #scheduler_decoder.step(float(loss.data))
         return float(loss)
     def trainIters(self,encoder, decoder, name, test_name, n_epochs, learning_rate=0.001, print_every=2, plot_every=100):
-        encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
-        decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
-        #encoder_optimizer = optim.SGD(encoder.parameters(), lr=0.001, momentum=0.9)
-        #decoder_optimizer = optim.SGD(decoder.parameters(), lr=0.001, momentum=0.9)
-        #scheduler_encoder = optim.lr_scheduler.ReduceLROnPlateau(encoder_optimizer, 'min')
-        #scheduler_decoder = optim.lr_scheduler.ReduceLROnPlateau(decoder_optimizer, 'min')        
+        encoder_optimizer = optim.RMSprop(encoder.parameters(), lr=learning_rate)
+        decoder_optimizer = optim.RMSprop(decoder.parameters(), lr=learning_rate)
 
 
         criterion = nn.CrossEntropyLoss(size_average=False)
@@ -269,7 +264,7 @@ class Datamanager:
         data_size = len(self.data[name].dataset)
         for step, (batch_x, k) in enumerate(self.data[name]):
             batch_index = step + 1
-            batch_x=Variable(batch_x).cuda()
+            batch_x = Variable(batch_x).cuda()
 
             encoder_outputs, encoder_hidden = encoder(batch_x)
             #decoder_hidden= decoder.hidden_layer(len(batch_x))
