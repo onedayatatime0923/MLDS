@@ -236,7 +236,7 @@ class Datamanager:
             print('    {:<25} | ground_sequence: {}'.format(' '*len(i),g_seq))
         # writing output file
         if write_file!=None and bleu_average > record:
-            self.write(write_file,decoded_words,name,video[0])
+            self.write(write_file,decoded_words,name,videos[0])
         print('-'*80)
         if bleu_average>record: return bleu_average
         else: return record
@@ -283,7 +283,7 @@ class Datamanager:
         print('\nTime: {}  '.format(self.timeSince(start,1)))
         # writing output file
         if write_file!=None:
-            self.write(write_file,decoded_words,name,video[0])
+            self.write(write_file,decoded_words,name,videos[0])
         print('-'*80)
     def loss(self,criterion,output,target):
         check_t=(target!=self.voc.word2index("PAD"))
