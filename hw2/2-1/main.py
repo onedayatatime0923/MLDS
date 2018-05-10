@@ -29,8 +29,6 @@ print("Decoder Parameter: {}".format(dm.count_parameters(decoder)))
 #torch.save(encoder,'encoder.pt')
 #torch.save(decoder,'decoder.pt')
 
-dm.evaluate(encoder, decoder, 'test', write_file=WRITE_OUTPUT_PATH, record=0, n=5)
-input()
 dm.trainIters(encoder, decoder, 'train', 'test', EPOCHS, WRITE_OUTPUT_PATH, PRINT_OUTPUT_PATH)
 torch.save(encoder,'encoder.pt')
 torch.save(decoder,'decoder.pt')
