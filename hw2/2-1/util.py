@@ -13,6 +13,8 @@ import json
 import random
 import time
 import math
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 assert os and np and F and math
 
@@ -419,7 +421,7 @@ class Datamanager:
         plt.plot(x,y[:,1],'g',label='bleu')
         plt.legend()
         plt.savefig(path)
-        plt.close()
+        #plt.close()
 class Vocabulary:
     def __init__(self,min_count):
         self.w2i= {"SOS":0, "EOS":1, "PAD":2, "UNK":3}
