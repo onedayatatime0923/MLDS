@@ -237,7 +237,6 @@ class Datamanager:
         if write_file!=None and bleu_average > record:
             self.write(write_file,decoded_words,name,videos[0])
 
-        self.write(write_file,decoded_words,name,videos[0])
         print('-'*80)
         if bleu_average>record: return bleu_average
         else: return record
