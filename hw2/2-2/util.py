@@ -139,9 +139,8 @@ class Datamanager:
         decoder_optimizer.step()
         return float(loss)
     def trainIters(self,encoder, decoder, name, test_name, n_epochs, learning_rate=0.001, print_every=2, plot_every=100, output_path='./ouput.txt'):
-        encoder_optimizer = optim.RMSprop(encoder.parameters(), lr=learning_rate)
-        decoder_optimizer = optim.RMSprop(decoder.parameters(), lr=learning_rate)
-
+        encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
+        decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
 
         criterion = nn.CrossEntropyLoss(size_average=False)
         teacher_forcing_ratio=F.sigmoid(torch.linspace(30,10,n_epochs))
