@@ -37,7 +37,7 @@ decoder=AttnDecoderRNN(HIDDEN_LAYER,dm.vocab_size,NUM_LAYER, NUM_HOP, DROPOUT).c
 print('finish establishing decoder ...')
 
 print('start training ...')
-dm.trainIters(encoder, decoder, 'train', 'test', EPOCHS, OUTPUT_FILE)
+dm.trainIters(encoder, decoder, 'train', 'test', EPOCHS, output_path=OUTPUT_FILE)
 torch.save(encoder,'encoder.pt')
 torch.save(decoder,'decoder.pt')
 
