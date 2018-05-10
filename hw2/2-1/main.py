@@ -3,7 +3,7 @@ from util import Datamanager, EncoderRNN, AttnDecoderRNN
 import torch
 assert torch and EncoderRNN and AttnDecoderRNN
 
-EPOCHS=50
+EPOCHS=100
 BATCH_SIZE= 128
 HIDDEN_LAYER= 2048
 LAYER_N=3
@@ -12,11 +12,15 @@ DROPOUT=0.5
 MIN_COUNT = 3
 PRINT_OUTPUT_PATH = './record.png'
 WRITE_OUTPUT_PATH = './data/output.txt'
+VOLCABULARY_PATH = './vocab.txt'
 
 
 dm = Datamanager(MIN_COUNT)
 dm.get_data('train','./data/training_data/feat','./data/training_label.json','train',batch_size=BATCH_SIZE)
 dm.get_data('test','./data/testing_data/feat','./data/testing_label.json','test',batch_size=BATCH_SIZE,shuffle=False)
+dm.voc.save(VOLCABULARY_PATH)
+print('Max length: {}'.format(dm.max_length))
+print('Vocabulary size: {}'.format(dm.voc.n_words))
 
 encoder=EncoderRNN(4096,HIDDEN_LAYER, LAYER_N,dropout=DROPOUT).cuda()
 decoder=AttnDecoderRNN(HIDDEN_LAYER,dm.vocab_size, LAYER_N, HOP_N, dropout=DROPOUT).cuda()
