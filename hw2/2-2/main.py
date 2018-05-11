@@ -4,7 +4,7 @@ import torch
 import sys
 assert torch and EncoderRNN and AttnDecoderRNN
 
-EPOCHS = 200
+EPOCHS = 30
 BATCH_SIZE = 100
 HIDDEN_LAYER = 1024
 NUM_LAYER = 3
