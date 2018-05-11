@@ -143,7 +143,7 @@ class Datamanager:
         decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
 
         criterion = nn.CrossEntropyLoss(size_average=False)
-        teacher_forcing_ratio=F.sigmoid(torch.linspace(30,10,n_epochs))
+        teacher_forcing_ratio=F.sigmoid(torch.linspace(30,20,n_epochs))
         for epoch in range(1, n_epochs+ 1):
             start = time.time()
             loss_total=0
