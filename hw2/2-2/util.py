@@ -5,7 +5,7 @@ from torch.utils.data import Dataset,DataLoader
 from torch.autograd import Variable
 from torch import optim
 import os
-import numpy as np
+import numpy as np 
 import json ,random ,time ,math, sys
 assert os and np and F and math and json
  
@@ -139,8 +139,8 @@ class Datamanager:
         decoder_optimizer.step()
         return float(loss)
     def trainIters(self,encoder, decoder, name, test_name, n_epochs, learning_rate=0.001, print_every=2, plot_every=100, output_path='./ouput.txt'):
-        encoder_optimizer = optim.RMSprop(encoder.parameters(), lr=learning_rate)
-        decoder_optimizer = optim.RMSprop(decoder.parameters(), lr=learning_rate)
+        encoder_optimizer = optim.RMSprop(encoder.parameters(), lr=float(learning_rate))
+        decoder_optimizer = optim.RMSprop(decoder.parameters(), lr=float(learning_rate))
 
 
         criterion = nn.CrossEntropyLoss(size_average=False)
@@ -155,8 +155,7 @@ class Datamanager:
                 batch_y=Variable(batch_y).cuda()
 
 
-                loss = self.train(batch_x, batch_y, encoder, decoder, encoder_optimizer, decoder_optimizer,\
-                         criterion, teacher_forcing_ratio=teacher_forcing_ratio[epoch])
+                loss = self.train(batch_x, batch_y, encoder, decoder, encoder_optimizer, decoder_optimizer,criterion, teacher_forcing_ratio = teacher_forcing_ratio[epoch])
                 # loss
                 loss_total+=loss
 
@@ -171,7 +170,12 @@ class Datamanager:
             print('\nTime: {} | Total loss: {:.4f}'.format(self.timeSince(start,1),loss_total/batch_index))
             print('-'*80)
             if epoch%5==1 :self.evaluate(encoder,decoder,name,n=5)
-            self.predict(encoder,decoder,test_name,n=5, path= output_path)
+            #self.predict(encoder,decoder,test_name,n=5, path= output_path)
+            if epoch%2 == 1: 
+                print('epoch=',epoch)
+                torch.save(encoder,'encoder_'+str(epoch)+'.pt')
+                torch.save(decoder,'decoder_'+str(epoch)+'.pt')
+                self.test(encoder,decoder,'test','output.txt')
     def evaluate(self,encoder, decoder, name, n=5):
         encoder.eval()
         decoder.eval()
@@ -251,6 +255,57 @@ class Datamanager:
         print('-'*60)
  
         return decoded_words
+
+    def test(self,encoder,decoder,name,path):
+        encoder.eval()
+        decoder.eval()
+
+        start = time.time()
+        decoded_words = []
+        record_index = []
+
+        data_size = len(self.data[name].dataset)
+        for step, (batch_x, k) in enumerate(self.data[name]):
+            batch_index = step + 1
+            batch_x = Variable(batch_x).cuda()
+
+            encoder_outputs, encoder_hidden = encoder(batch_x)
+            decoder_hidden= encoder_hidden
+
+            decoder_input = Variable(torch.LongTensor([self.voc.word2index('SOS') for i in range(len(batch_x))]).cuda())       
+            words=[]
+            for di in range(1,self.max_len):
+                decoder_output, decoder_hidden = decoder(
+                    decoder_input, decoder_hidden, encoder_outputs)
+                ni = decoder_output.data.max(1,keepdim=True)[1]
+                decoder_input = Variable(ni)       
+                words.append(ni)
+
+            words = torch.cat(words,1).unsqueeze(1)
+            decoded_words.extend(words)
+            record_index.extend(k)
+            print('\rTest on {}ing set | [{}/{} ({:.0f}%)] | Time: {}  '.format(
+                        name,batch_index*len(batch_x), data_size,
+                        100. * batch_index*len(batch_x)/ data_size,
+                        self.timeSince(start, batch_index*len(batch_x)/ data_size)),end='')
+        
+        decoded_words = torch.cat(decoded_words,0)
+        with open(path, 'w') as f:
+            for i in range(len(decoded_words)):
+                seq_list=[]
+                for j in decoded_words[i]:
+                    index= int(j)
+                    if index == self.voc.word2index('EOS'): break
+                    seq_list.append(self.voc.index2word[index])
+                f.write('{}\n'.format(' '.join(seq_list)))
+        print('-'*80)
+        #os.system('cd data/evaluation')
+        os.chdir('data/evaluation')
+        os.system('python main.py ../test_input.txt ../../output.txt')
+        #os.system('cd ../..')
+        os.chdir('../../')
+        return decoded_words
+
     def predict(self,encoder, decoder, name, n=5, path= None):
         encoder.eval()
         decoder.eval()

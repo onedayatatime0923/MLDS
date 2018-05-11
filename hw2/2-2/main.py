@@ -4,7 +4,7 @@ import torch
 import sys
 assert torch and EncoderRNN and AttnDecoderRNN
 
-EPOCHS = 200
+EPOCHS = 150
 BATCH_SIZE = 100
 HIDDEN_LAYER = 1024
 NUM_LAYER = 2
@@ -29,15 +29,29 @@ print('Vocabulary size: {}'.format(dm.vocab_size))
 print('Max Length: {}'.format(dm.max_len))
 #input()
 
-encoder=EncoderRNN(HIDDEN_LAYER,dm.vocab_size,NUM_LAYER, DROPOUT).cuda()
-#torch.save(encoder,'encoder.pt')
-print('finish establishing encoder ...')
-decoder=AttnDecoderRNN(HIDDEN_LAYER,dm.vocab_size,NUM_LAYER, NUM_HOP, DROPOUT).cuda()
-#torch.save(decoder,'decoder.pt')
-print('finish establishing decoder ...')
+#encoder=EncoderRNN(HIDDEN_LAYER,dm.vocab_size,NUM_LAYER, DROPOUT).cuda()
+#print('finish establishing encoder ...')
+#decoder=AttnDecoderRNN(HIDDEN_LAYER,dm.vocab_size,NUM_LAYER, NUM_HOP, DROPOUT).cuda()
+#print('finish establishing decoder ...')
 
-print('start training ...')
-dm.trainIters(encoder, decoder, 'train', 'test', EPOCHS, OUTPUT_FILE)
-torch.save(encoder,'encoder.pt')
-torch.save(decoder,'decoder.pt')
+#print('start training ...')
+#dm.trainIters(encoder, decoder, 'train', 'test', EPOCHS, output_path = OUTPUT_FILE)
+#torch.save(encoder,'encoder.pt')
+#torch.save(decoder,'decoder.pt')
+
+encoder = torch.load(sys.argv[1])
+decoder = torch.load(sys.argv[2])
+
+dm.test(encoder,decoder,'test','../../output.txt')
+
+os.chdir('data/evaluation')
+os.system('python main.py ../test_input.txt ../../output.txt')
+
+
+
+
+
+
+
+
 
