@@ -15,7 +15,7 @@ WRITE_OUTPUT_PATH = './data/output.txt'
 VOLCABULARY_PATH = './vocab.txt'
 
 
-dm = Datamanager(MIN_COUNT)
+dm = Datamanager(min_count= MIN_COUNT)
 dm.get_data('train','./data/training_data/feat','./data/training_label.json','train',batch_size=BATCH_SIZE)
 dm.get_data('test','./data/testing_data/feat','./data/testing_label.json','test',batch_size=BATCH_SIZE,shuffle=False)
 dm.voc.save(VOLCABULARY_PATH)

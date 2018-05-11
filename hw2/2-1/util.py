@@ -20,11 +20,11 @@ assert os and np and F and math
 
 
 class Datamanager:
-    def __init__(self,min_count):
-        self.voc=Vocabulary(min_count)
+    def __init__(self,vocabulary_file=None, min_count= None, max_length=0):
+        self.voc=Vocabulary(vocabulary_file=vocabulary_file,min_count=min_count)
         self.data={}
-        self.vocab_size=0
-        self.max_length=0
+        self.vocab_size= self.voc.n_words
+        self.max_length=max_length
     def get_data(self,name,f_path,l_path,mode,batch_size,shuffle=True):
         # self.data[name]=[ dataloader, labels]
         feats={}
@@ -56,14 +56,13 @@ class Datamanager:
         else : raise ValueError('Wrong mode.')
         dataset=VideoDataset(feats,captions_id)
         self.data[name]= [DataLoader(dataset, batch_size=batch_size, shuffle=shuffle), captions_str]
-    def get_test_data(self,name,f_path, max_length, batch_size,shuffle=False):
+    def get_test_data(self,name,f_path, batch_size,shuffle=False):
         # self.data[name]=dataloader
         feats={}
         for i in os.listdir(f_path):
             if not i.startswith('.'):
                 x=torch.FloatTensor(np.load('{}/{}'.format(f_path,i)))
                 feats[i[:-4]]=x
-        self.max_length= max_length
 
         dataset=VideoDataset(feats)
         self.data[name]= DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
@@ -163,7 +162,7 @@ class Datamanager:
             if (epoch+1)%10==0: self.evaluate(encoder,decoder,name, n=3)
             record = self.evaluate(encoder,decoder,test_name, write_file=write_file,record= record, n=5)
             loss_bleu_list.append([loss_total/ batch_index, bleu_average])
-            self.plot(loss_bleu_list, plot_file)
+            if plot_file != None: self.plot(loss_bleu_list, plot_file)
     def evaluate(self,encoder, decoder, name, write_file=None, record=0, n=5):
         encoder.eval()
         decoder.eval()
@@ -423,12 +422,15 @@ class Datamanager:
         plt.savefig(path)
         #plt.close()
 class Vocabulary:
-    def __init__(self,min_count):
-        self.w2i= {"SOS":0, "EOS":1, "PAD":2, "UNK":3}
-        self.word2count = {}
-        self.index2word = {0: "SOS", 1: "EOS", 2: "PAD", 3:"UNK"}
-        self.n_words = 4  # Count SOS and EOS and PAD and UNK
-        self.min_count=min_count
+    def __init__(self, vocabulary_file,min_count):
+        if vocabulary_file == None:
+            self.w2i= {"SOS":0, "EOS":1, "PAD":2, "UNK":3}
+            self.word2count = {}
+            self.index2word = {0: "SOS", 1: "EOS", 2: "PAD", 3:"UNK"}
+            self.n_words = 4  # Count SOS and EOS and PAD and UNK
+            self.min_count=min_count
+        else:
+            self.load(vocabulary_file)
     def word2index(self,word):
         word=word.lower()
         if word in self.w2i: return self.w2i[word]
@@ -454,6 +456,9 @@ class Vocabulary:
         with open( path, 'w') as f:
             f.write('\n'.join(index_list))
     def load(self, path):
+        self.w2i= {}
+        self.word2count= {}
+        self.index2word= {}
         with open(path,'r') as f:
             i=0
             for line in f:
