@@ -11,8 +11,8 @@ assert os and np and F and math and json
  
 
 class Datamanager:
-    def __init__(self,min_count, max_len, min_len):
-        self.voc=Vocabulary(min_count)
+    def __init__(self,min_count, max_len, min_len,vocabulary_file=None):
+        self.voc=Vocabulary(vocabulary_file=vocabulary_file,min_count=min_count)
         self.data={}
         self.vocab_size=0
         self.max_len= max_len
@@ -402,12 +402,15 @@ class Datamanager:
         if(l > self.min_len and  l < self.max_len): return True
         else: return False
 class Vocabulary:
-    def __init__(self,min_count):
-        self.w2i= {"SOS":0, "EOS":1, "PAD":2, "UNK":3}
-        self.word2count = {}
-        self.index2word = {0: "SOS", 1: "EOS", 2: "PAD", 3:"UNK"}
-        self.n_words = 4  # Count SOS and EOS and PAD and UNK
-        self.min_count = min_count
+    def __init__(self,vocabulary_file=None,min_count=1):
+        if vocabulary_file == None:
+            self.w2i= {"SOS":0, "EOS":1, "PAD":2, "UNK":3}
+            self.word2count = {}
+            self.index2word = {0: "SOS", 1: "EOS", 2: "PAD", 3:"UNK"}
+            self.n_words = 4  # Count SOS and EOS and PAD and UNK
+            self.min_count = min_count
+        else:
+            self.load(vocabulary_file)    
     def word2index(self,word):
         if word in self.w2i: return self.w2i[word]
         else: return self.w2i["UNK"]
@@ -431,6 +434,25 @@ class Vocabulary:
             self.w2i[word] = self.n_words
             self.index2word[self.n_words] = word
             self.n_words += 1
+    def save(self, path):
+        index_list= sorted( self.w2i , key= self.w2i.get)
+        with open( path, 'w') as f:
+            f.write('\n'.join(index_list))
+    def load(self, path):
+        self.w2i= {}
+        self.word2count= {}
+        self.index2word= {}
+        with open(path,'r') as f:
+            i=0
+            for line in f:
+                word=line.replace('\n','')
+                self.w2i[word] = i
+                self.word2count[word]=0
+                self.index2word[i] = word
+                i+=1
+            self.n_words=len(self.w2i)
+
+
 class EncoderRNN(nn.Module):
     def __init__(self, hidden_size , vocab_size , layer_n, dropout=0.3 ):
         super(EncoderRNN, self).__init__()
