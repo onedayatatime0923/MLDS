@@ -4,7 +4,7 @@ import torch
 assert torch and EncoderRNN and AttnDecoderRNN
 
 EPOCHS= 50
-BATCH_SIZE= 256
+BATCH_SIZE= 128
 HIDDEN_LAYER= 1024
 LAYER_N= 3
 HOP_N= 3
@@ -30,6 +30,6 @@ print("Decoder Parameter: {}".format(dm.count_parameters(decoder)))
 #torch.save(decoder,'decoder.pt')
 
 dm.trainIters(encoder, decoder, 'train', 'test', EPOCHS, write_file= WRITE_OUTPUT_PATH, plot_file = PRINT_OUTPUT_PATH)
-torch.save(encoder,'encoder.pt')
-torch.save(decoder,'decoder.pt')
+#torch.save(encoder,'encoder.pt')
+#torch.save(decoder,'decoder.pt')
 

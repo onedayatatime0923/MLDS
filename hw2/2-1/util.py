@@ -161,7 +161,7 @@ class Datamanager:
             print('\nTime: {} | Total loss: {:.4f} | Bleu Score: {:.5f}'.format(self.timeSince(start,1),loss_total/batch_index,bleu_average))
             print('-'*80)
             if (epoch+1)%10==0: self.evaluate(encoder,decoder,name, n=3)
-            self.evaluate(encoder,decoder,test_name, write_file=write_file,record= record, n=5)
+            record = self.evaluate(encoder,decoder,test_name, write_file=write_file,record= record, n=5)
             loss_bleu_list.append([loss_total/ batch_index, bleu_average])
             self.plot(loss_bleu_list, plot_file)
     def evaluate(self,encoder, decoder, name, write_file=None, record=0, n=5):
@@ -236,10 +236,10 @@ class Datamanager:
         # writing output file
         if write_file!=None and bleu_average > record:
             self.write(write_file,decoded_words,name,videos[0])
-
+            torch.save(encoder,'encoder.pt')
+            torch.save(decoder,'decoder.pt')
         print('-'*80)
-        if bleu_average>record: return bleu_average
-        else: return record
+        return max(bleu_average, record)
     def predict(self,encoder, decoder, name, write_file=None):
         encoder.eval()
         decoder.eval()
