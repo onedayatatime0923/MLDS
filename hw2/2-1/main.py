@@ -3,7 +3,7 @@ from util import Datamanager, EncoderRNN, AttnDecoderRNN
 import torch
 assert torch and EncoderRNN and AttnDecoderRNN
 
-EPOCHS=100
+EPOCHS= 50
 BATCH_SIZE= 256
 HIDDEN_LAYER= 1024
 LAYER_N= 3
