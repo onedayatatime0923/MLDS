@@ -30,6 +30,6 @@ print("Decoder Parameter: {}".format(dm.count_parameters(decoder)))
 #torch.save(decoder,'decoder.pt')
 
 dm.trainIters(encoder, decoder, 'train', 'test', EPOCHS, write_file= WRITE_OUTPUT_PATH, plot_file = PRINT_OUTPUT_PATH)
-torch.save(encoder,'encoder.pt')
-torch.save(decoder,'decoder.pt')
+#torch.save(encoder,'encoder.pt')
+#torch.save(decoder,'decoder.pt')
 
