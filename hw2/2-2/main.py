@@ -7,7 +7,7 @@ assert torch and EncoderRNN and AttnDecoderRNN
 
 EPOCHS = 150
 BATCH_SIZE = 100
-HIDDEN_LAYER = 1024
+HIDDEN_LAYER =  512
 NUM_LAYER = 3
 NUM_HOP = 3
 DROPOUT = 0.5

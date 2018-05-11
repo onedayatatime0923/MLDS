@@ -1,12 +1,13 @@
 
 from util import Datamanager, EncoderRNN, AttnDecoderRNN
 import torch
+import sys
 assert torch and EncoderRNN and AttnDecoderRNN
 
 BATCH_SIZE= 128
 MAX_LENGTH = 42
-TEST_DIR = './data/testing_data/feat'
-WRITE_OUTPUT_PATH = './output.txt'
+TEST_DIR = '{}/feat'.format(sys.argv[1])
+WRITE_OUTPUT_PATH = sys.argv[2]
 VOLCABULARY_PATH = './vocab.txt'
 
 
