@@ -5,14 +5,14 @@ from torch.utils.data import Dataset,DataLoader
 from torch.autograd import Variable
 from torch import optim
 import os
-import numpy as np
+import numpy as np 
 import json ,random ,time ,math, sys
 assert os and np and F and math and json
  
 
 class Datamanager:
-    def __init__(self,min_count, max_len, min_len):
-        self.voc=Vocabulary(min_count)
+    def __init__(self,min_count, max_len, min_len,vocabulary_file=None):
+        self.voc=Vocabulary(vocabulary_file=vocabulary_file,min_count=min_count)
         self.data={}
         self.vocab_size=0
         self.max_len= max_len
@@ -139,8 +139,9 @@ class Datamanager:
         decoder_optimizer.step()
         return float(loss)
     def trainIters(self,encoder, decoder, name, test_name, n_epochs, learning_rate=0.001, print_every=2, plot_every=100, output_path='./ouput.txt'):
-        encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
-        decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
+        encoder_optimizer = optim.RMSprop(encoder.parameters(), lr=float(learning_rate))
+        decoder_optimizer = optim.RMSprop(decoder.parameters(), lr=float(learning_rate))
+
 
         criterion = nn.CrossEntropyLoss(size_average=False)
         teacher_forcing_ratio=F.sigmoid(torch.linspace(30,20,n_epochs))
@@ -154,8 +155,7 @@ class Datamanager:
                 batch_y=Variable(batch_y).cuda()
 
 
-                loss = self.train(batch_x, batch_y, encoder, decoder, encoder_optimizer, decoder_optimizer,\
-                         criterion, teacher_forcing_ratio=teacher_forcing_ratio[epoch])
+                loss = self.train(batch_x, batch_y, encoder, decoder, encoder_optimizer, decoder_optimizer,criterion, teacher_forcing_ratio = teacher_forcing_ratio[epoch])
                 # loss
                 loss_total+=loss
 
@@ -170,7 +170,12 @@ class Datamanager:
             print('\nTime: {} | Total loss: {:.4f}'.format(self.timeSince(start,1),loss_total/batch_index))
             print('-'*80)
             if epoch%5==1 :self.evaluate(encoder,decoder,name,n=5)
-            self.predict(encoder,decoder,test_name,n=5, path= output_path)
+            #self.predict(encoder,decoder,test_name,n=5, path= output_path)
+            if epoch%2 == 1: 
+                print('epoch=',epoch)
+                torch.save(encoder,'encoder_'+str(epoch)+'.pt')
+                torch.save(decoder,'decoder_'+str(epoch)+'.pt')
+                self.test(encoder,decoder,'test','output.txt')
     def evaluate(self,encoder, decoder, name, n=5):
         encoder.eval()
         decoder.eval()
@@ -250,6 +255,57 @@ class Datamanager:
         print('-'*60)
  
         return decoded_words
+
+    def test(self,encoder,decoder,name,path):
+        encoder.eval()
+        decoder.eval()
+
+        start = time.time()
+        decoded_words = []
+        record_index = []
+
+        data_size = len(self.data[name].dataset)
+        for step, (batch_x, k) in enumerate(self.data[name]):
+            batch_index = step + 1
+            batch_x = Variable(batch_x).cuda()
+
+            encoder_outputs, encoder_hidden = encoder(batch_x)
+            decoder_hidden= encoder_hidden
+
+            decoder_input = Variable(torch.LongTensor([self.voc.word2index('SOS') for i in range(len(batch_x))]).cuda())       
+            words=[]
+            for di in range(1,self.max_len):
+                decoder_output, decoder_hidden = decoder(
+                    decoder_input, decoder_hidden, encoder_outputs)
+                ni = decoder_output.data.max(1,keepdim=True)[1]
+                decoder_input = Variable(ni)       
+                words.append(ni)
+
+            words = torch.cat(words,1).unsqueeze(1)
+            decoded_words.extend(words)
+            record_index.extend(k)
+            print('\rTest on {}ing set | [{}/{} ({:.0f}%)] | Time: {}  '.format(
+                        name,batch_index*len(batch_x), data_size,
+                        100. * batch_index*len(batch_x)/ data_size,
+                        self.timeSince(start, batch_index*len(batch_x)/ data_size)),end='')
+        
+        decoded_words = torch.cat(decoded_words,0)
+        with open(path, 'w') as f:
+            for i in range(len(decoded_words)):
+                seq_list=[]
+                for j in decoded_words[i]:
+                    index= int(j)
+                    if index == self.voc.word2index('EOS'): break
+                    seq_list.append(self.voc.index2word[index])
+                f.write('{}\n'.format(' '.join(seq_list)))
+        print('-'*80)
+        #os.system('cd data/evaluation')
+        os.chdir('data/evaluation')
+        os.system('python main.py ../test_input.txt ../../output.txt')
+        #os.system('cd ../..')
+        os.chdir('../../')
+        return decoded_words
+
     def predict(self,encoder, decoder, name, n=5, path= None):
         encoder.eval()
         decoder.eval()
@@ -346,12 +402,15 @@ class Datamanager:
         if(l > self.min_len and  l < self.max_len): return True
         else: return False
 class Vocabulary:
-    def __init__(self,min_count):
-        self.w2i= {"SOS":0, "EOS":1, "PAD":2, "UNK":3}
-        self.word2count = {}
-        self.index2word = {0: "SOS", 1: "EOS", 2: "PAD", 3:"UNK"}
-        self.n_words = 4  # Count SOS and EOS and PAD and UNK
-        self.min_count = min_count
+    def __init__(self,vocabulary_file=None,min_count=1):
+        if vocabulary_file == None:
+            self.w2i= {"SOS":0, "EOS":1, "PAD":2, "UNK":3}
+            self.word2count = {}
+            self.index2word = {0: "SOS", 1: "EOS", 2: "PAD", 3:"UNK"}
+            self.n_words = 4  # Count SOS and EOS and PAD and UNK
+            self.min_count = min_count
+        else:
+            self.load(vocabulary_file)    
     def word2index(self,word):
         if word in self.w2i: return self.w2i[word]
         else: return self.w2i["UNK"]
@@ -375,6 +434,25 @@ class Vocabulary:
             self.w2i[word] = self.n_words
             self.index2word[self.n_words] = word
             self.n_words += 1
+    def save(self, path):
+        index_list= sorted( self.w2i , key= self.w2i.get)
+        with open( path, 'w') as f:
+            f.write('\n'.join(index_list))
+    def load(self, path):
+        self.w2i= {}
+        self.word2count= {}
+        self.index2word= {}
+        with open(path,'r') as f:
+            i=0
+            for line in f:
+                word=line.replace('\n','')
+                self.w2i[word] = i
+                self.word2count[word]=0
+                self.index2word[i] = word
+                i+=1
+            self.n_words=len(self.w2i)
+
+
 class EncoderRNN(nn.Module):
     def __init__(self, hidden_size , vocab_size , layer_n, dropout=0.3 ):
         super(EncoderRNN, self).__init__()
