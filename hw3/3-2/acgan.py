@@ -32,7 +32,7 @@ print(discriminator)
 
 train_record=[]
 for epoch in range(1,EPOCHS+1):
-    train_record.append(dm.train('train', generator, discriminator, optimizer, epoch, print_every=5))
+    train_record.append(dm.train('train', generator, discriminator, optimizer, epoch, print_every=3))
     dm.val(generator, discriminator, n=10, epoch= epoch, path=OUTPUT_DIR)
 torch.save(generator,'generator_acgan.pt')
 torch.save(discriminator,'discriminator_acgan.pt')

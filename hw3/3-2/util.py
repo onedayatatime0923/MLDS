@@ -104,6 +104,8 @@ class DataManager():
         criterion= nn.BCELoss()
         total_loss= [0,0,0]     # G, D, C
         batch_loss= [0,0,0]     # G, D, C
+        total_accu= [0,0,0]     # G, D_real, D_fake
+        batch_accu= [0,0,0]     # G, D_real, D_fake
         
         data_size= len(self.data[name].dataset)
         for j, (i, c) in enumerate(self.data[name]):
@@ -128,6 +130,8 @@ class DataManager():
                 discriminator_optimizer.step()
                 batch_loss[1]+= float(loss_fake_i)+ float( loss_real_i)
                 batch_loss[2]+= float(loss_fake_c)+ float( loss_real_c)
+                batch_accu[1]+= int(torch.sum(real_i>0.5))
+                batch_accu[2]+= int(torch.sum(fake_i<0.5))
                 #print(float(loss))
 
             # update generator
@@ -145,23 +149,32 @@ class DataManager():
                 generator_optimizer.step()
                 batch_loss[0]+= float(loss_fake_i)
                 batch_loss[2]+= float(loss_fake_c)
+                batch_accu[0]+= int(torch.sum(fake_i>0.5))
                 #print(float(loss))
 
             if batch_index% print_every == 0:
                 total_loss[0]+= batch_loss[0]/ (self.generator_update_num ) if (self.generator_update_num!=0) else 0
-                total_loss[1]+= batch_loss[1]/ (self.discriminator_update_num ) if (self.discriminator_update_num!=0) else 0
+                total_loss[1]+= batch_loss[1]/ (self.discriminator_update_num*2 ) if (self.discriminator_update_num!=0) else 0
                 total_loss[2]+= batch_loss[2]/ (self.discriminator_update_num*2 + self.generator_update_num )
-                print('\rTrain Epoch: {} | [{}/{} ({:.0f}%)] | Loss G: {:.6f} D: {:.6f} C: {:.6f} | Time: {}  '.format(
+                total_accu[0]+= batch_accu[0]/ (self.generator_update_num ) if (self.generator_update_num!=0) else 0
+                total_accu[1]+= batch_accu[1]/ (self.discriminator_update_num ) if (self.discriminator_update_num!=0) else 0
+                total_accu[2]+= batch_accu[2]/ (self.discriminator_update_num ) if (self.discriminator_update_num!=0) else 0
+                print('\rEpoch: {} | [{}/{} ({:.0f}%)] | Loss G: {:.4f} D: {:.4f} C: {:.4f} | Accu G: {:.2f}% D_real: {:.2f}% D_fake: {:.2f}% | Time: {}  '.format(
                                 epoch , batch_index*len(i), data_size, 
                                 100. * batch_index*len(i)/ data_size,
                                 batch_loss[0]/ (self.generator_update_num *print_every) if (self.generator_update_num!=0) else 0,
-                                batch_loss[1]/ (self.discriminator_update_num *print_every)if (self.discriminator_update_num!=0) else 0,
-                                batch_loss[2]/ (self.discriminator_update_num*2 + self.generator_update_num ),
+                                batch_loss[1]/ (self.discriminator_update_num*2 *print_every)if (self.discriminator_update_num!=0) else 0,
+                                batch_loss[2]/ ((self.discriminator_update_num*2 + self.generator_update_num )* print_every),
+                                100. * (batch_accu[0]/ (self.generator_update_num* print_every ))/ len(i) if (self.generator_update_num!=0) else 0,
+                                100. * (batch_accu[1]/ (self.discriminator_update_num* print_every ))/ len(i) if (self.discriminator_update_num!=0) else 0,
+                                100. * (batch_accu[2]/ (self.discriminator_update_num* print_every ))/ len(i) if (self.discriminator_update_num!=0) else 0,
                                 self.timeSince(start, batch_index*len(i)/ data_size)),end='')
-                batch_loss= [0,0,0]
-        print('\rTrain Epoch: {} | [{}/{} ({:.0f}%)] | Total G Loss: {:.6f} | Total D Loss: {:.6f} | Total C loss: {:.6f} | Time: {}  '.format(
+                batch_loss= [0,0,0]     # G, D, C
+                batch_accu= [0,0,0]     # G, D_real, D_fake
+        print('\rTrain Epoch: {} | [{}/{} ({:.0f}%)] | Total Loss G : {:.6f} D : {:.6f} C : {:.6f} | Total Accu G: {:.2f}% D_real: {:.2f}% D_fake: {:.2f}% | Time: {}  '.format(
                         epoch , data_size, data_size, 100. ,
                         float(total_loss[0])/batch_index,float(total_loss[1])/batch_index, float(total_loss[2])/ batch_index,
+                        float(total_accu[0])/batch_index,float(total_accu[1])/batch_index, float(total_accu[2])/ batch_index,
                         self.timeSince(start, 1)))
         if self.writer != None:
             self.writer.add_scalar('generator loss', float(total_loss[0])/ batch_index, epoch)
