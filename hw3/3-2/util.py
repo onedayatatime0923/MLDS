@@ -10,15 +10,16 @@ import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 import time, os, math
-#from tensorboardX import SummaryWriter 
+from tensorboardX import SummaryWriter 
 import matplotlib.pyplot as plt
-assert torch and nn and Variable and F and Dataset and DataLoader
+assert torch and nn and Variable and F and Dataset and DataLoader and SummaryWriter
 assert time and np
 
 
 class DataManager():
     def __init__(self,latent_dim=0, discriminator_update_num=0, generator_update_num=0):
         self.data={}
+        self.color= Color()
         self.discriminator_update_num= discriminator_update_num
         self.generator_update_num= generator_update_num
         self.latent_dim= latent_dim
@@ -28,7 +29,7 @@ class DataManager():
     def tb_setting(self, path):
         for f in os.listdir(path): 
             os.remove('{}/{}'.format(path,f))
-        #self.writer = SummaryWriter(path)
+        self.writer = SummaryWriter(path)
     def tb_graph(self, model, input_shape):
         if isinstance(input_shape, tuple):
             dummy_input= Variable( torch.rand(1, *input_shape).cuda())
@@ -36,36 +37,31 @@ class DataManager():
             dummy_input= Variable( torch.rand(1, input_shape).cuda())
         else: raise ValueError('Wrong input_shape')
         self.writer.add_graph(nn.Sequential(*model), (dummy_input, ))
-    def get_data(self,name, i_path, c_path= None, class_range=None, mode= 'gan',batch_size= 128, shuffle=False):
+    def get_data(self,name, i_path, c_path, batch_size= 128, shuffle=False):
         x=[]
-        for p in i_path:
-            file_list = [file for file in os.listdir(p) if file.endswith('.png')]
-            file_list.sort()
-            for i in file_list:
-                x.append(np.array(Image.open('{}/{}'.format(p,i)),dtype=np.uint8).transpose((2,0,1)))
-                print('\rreading {} image...{}'.format(name,len(x)),end='')
+        file_len = len([file for file in os.listdir(i_path) if file.endswith('.jpg')])
+        for i in range(file_len):
+            x.append(np.array(Image.open('{}/{}.jpg'.format(i_path,i)),dtype=np.uint8).transpose((2,0,1)))
+            print('\rreading {} image...{}'.format(name,len(x)),end='')
 
         x=np.array(x)
         self.data_size= x.shape[1:]
         print('\rreading {} image...finish'.format(name))
 
-        if class_range!= None:
-            y=[]
-            for p in c_path:
-                with open(p, 'r') as f:
-                    next(f)
-                    for line in f:
-                        data=[int(i=='1.0') for i in line.split(',')[1:]]
-                        y.append(np.array(data,dtype=np.uint8))
-                    print('\rreading {} class...{}'.format(name,len(y)),end='')
-            y=np.array(y)[:,class_range[0]:class_range[1]]
-            self.label_dim= y.shape[1]
-            print('\rreading {} class...finish'.format(name))
-            self.data[name]=DataLoader(ImageDataset(x, y ,mode, flip= False),batch_size=batch_size, shuffle=shuffle)
-            return x.shape[1:], y.shape[1]
-        else:
-            self.data[name]=DataLoader(ImageDataset(x, None ,mode, flip= False),batch_size=batch_size, shuffle=shuffle)
-            return x.shape[1:]
+        y=[]
+        with open(c_path, 'r') as f:
+            next(f)
+            for line in f:
+                data= line.replace('\n','').split(',',1)[1]
+                hair_c, eyes_c= self.color.addColors(data)
+                
+                y.append(np.array([hair_c,eyes_c],dtype=np.uint8))
+                print('\rreading {} class...{}'.format(name,len(y)),end='')
+        y=np.array(y)
+        self.label_dim= y.shape[1]
+        print('\rreading {} class...finish'.format(name))
+        self.data[name]=DataLoader(FaceDataset(x, y, self.color.n_colors, flip= False),batch_size=batch_size, shuffle=shuffle)
+        return x.shape[1:], self.color.n_colors* y.shape[1]
     def train_acgan(self,name, generator, discriminator, optimizer, epoch, print_every=1):
         start= time.time()
         generator.train()
@@ -569,33 +565,60 @@ class Discriminator_Acgan(nn.Module):
         return nn.Sequential(*layers), compress
     def optimizer(self, lr=0.0001, betas= (0.5,0.999)):
         return torch.optim.Adam(self.parameters(), lr=lr, betas=betas)
-class ImageDataset(Dataset):
-    def __init__(self, image, c, mode, flip=True, rotate= False):
+class FaceDataset(Dataset):
+    def __init__(self, image, c, n_colors, flip=True, rotate= False):
         self.image = image
         self.c = c
-        self.mode = mode
+        self.n_colors= n_colors
         self.flip_n= int(flip)+1
         self.rotate= rotate
     def __getitem__(self, i):
         index= i// self.flip_n 
         flip = bool( i % self.flip_n )
-
-        if self.mode=='vae':
-            if flip == True: x= np.flip(self.image[index],2).copy()
-            else: x= self.image[index]
-            x=torch.FloatTensor(x)/255
-            if self.rotate: x=torchvision.transforms.RandomRotation(5)
-            if not isinstance(self.c, np.ndarray) : return x
-            c=torch.FloatTensor(self.c[index][:])
-            return x, c
-        elif self.mode=='gan':
-            if flip == True: x= np.flip(self.image[index],2).copy()
-            else: x= self.image[index]
-            x=(torch.FloatTensor(x)- 127.5)/127.5
-            if self.rotate>0: x=torchvision.transforms.RandomRotation(5)
-            if not isinstance(self.c, np.ndarray) : return x
-            c=torch.FloatTensor(self.c[index][:])
-            return x, c
-        else: raise ValueError('Wrong mode.')
+        if flip == True: x= np.flip(self.image[index],2).copy()
+        else: x= self.image[index]
+        x=(torch.FloatTensor(x)- 127.5)/127.5
+        if self.rotate: x=torchvision.transforms.RandomRotation(5)
+        c=torch.FloatTensor([int(i==self.c[index][0]) for i in self.n_colors] + [int(i==self.c[index][1]) for i in self.n_colors])
+        return x, c
     def __len__(self):
         return len(self.image)*self.flip_n
+class Color:
+    def __init__(self, vocabulary_file= None):
+        if vocabulary_file == None:
+            self.color2index= {}
+            self.color2count = {}
+            self.index2color = {}
+            self.n_colors = 0  # Count SOS and EOS and PAD and UNK
+        else:
+            self.load(vocabulary_file)
+    def addColors(self, sentences):
+        sen= sentences.split(' ')
+        self.addColor(sen[0])
+        self.addColor(sen[2])
+        return self.color2index[sen[0]],self.color2index[sen[2]]
+    def addColor(self, color):
+        color=color.lower()
+        if color in self.color2count: self.color2count[color]+=1
+        else:
+            self.color2index[color] = self.n_colors
+            self.color2count[color] = 1
+            self.index2color[self.n_colors] = color
+            self.n_colors += 1
+    def save(self, path):
+        index_list= sorted( self.color2index, key= self.color2index.get)
+        with open( path, 'w') as f:
+            f.write('\n'.join(index_list))
+    def load(self, path):
+        self.color2index= {}
+        self.color2count= {}
+        self.index2color= {}
+        with open(path,'r') as f:
+            i=0
+            for line in f:
+                color=line.replace('\n','')
+                self.color2index[color] = i
+                self.color2count[color]=0
+                self.index2color[i] = color
+                i+=1
+            self.n_words=len(self.color2index)
