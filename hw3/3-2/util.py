@@ -166,7 +166,7 @@ class DataManager():
                 total_accu[0]+= batch_accu[0]/ (self.generator_update_num ) if (self.generator_update_num!=0) else 0
                 total_accu[1]+= batch_accu[1]/ (self.discriminator_update_num ) if (self.discriminator_update_num!=0) else 0
                 total_accu[2]+= batch_accu[2]/ (self.discriminator_update_num ) if (self.discriminator_update_num!=0) else 0
-                print('\rEpoch: {} | [{}/{} ({:.0f}%)] | Loss G: {:.4f} D: {:.4f} C: {:.4f} | Accu G: {:.2f}% D_real: {:.2f}% D_fake: {:.2f}% | Time: {}  '.format(
+                print('\rEpoch {} | [{}/{} ({:.0f}%)] | Loss G: {:.4f} D: {:.4f} C: {:.4f} | Accu G: {:.1f}% D_real: {:.1f}% D_fake: {:.1f}% | Time: {}'.format(
                                 epoch , batch_index*len(i), data_size, 
                                 100. * batch_index*len(i)/ data_size,
                                 batch_loss[0]/ (self.generator_update_num *print_every) if (self.generator_update_num!=0) else 0,
