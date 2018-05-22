@@ -40,7 +40,8 @@ class DataManager():
         x=[]
         file_len = len([file for file in os.listdir(i_path) if file.endswith('.jpg')])
         for i in range(file_len):
-            x.append(np.array(Image.open('{}/{}.jpg'.format(i_path,i)),dtype=np.uint8).transpose((2,0,1)))
+            im=Image.open('{}/{}.jpg'.format(i_path,i)).resize( (64, 64), Image.BILINEAR )
+            x.append(np.array(im,dtype=np.uint8).transpose((2,0,1)))
             print('\rreading {} image...{}'.format(name,len(x)),end='')
         print('\rreading {} image...finish'.format(name))
 
