@@ -18,13 +18,13 @@ TENSORBOARD_DIR= './runs/acgan'
 
 dm = DataManager(LATENT_DIM,DISCRIMINATOR_UPDATE_NUM,GENERATOR_UPDATE_NUM)
 dm.tb_setting(TENSORBOARD_DIR)
-dm.get_anime_data('anime', i_path= '{}/faces'.format(INPUT_DIR), c_path= '{}/tags_clean.csv'.format(INPUT_DIR))
+#dm.get_anime_data('anime', i_path= '{}/faces'.format(INPUT_DIR), c_path= '{}/tags_clean.csv'.format(INPUT_DIR))
 dm.get_extra_data('extra', i_path= '{}/extra_data/images'.format(INPUT_DIR), c_path= '{}/extra_data/tags.csv'.format(INPUT_DIR))
-data_size, label_dim= dm.dataloader('train',['anime','extra'] )
+data_size, label_dim= dm.dataloader('train',['extra'] )
 print('data_size: {}'.format(data_size))
 print('label_dim: {}'.format(label_dim))
 
-generator= Generator(LATENT_DIM+ label_dim, GENERATOR_HIDDEN_CHANNEL, data_size[0]).cuda()
+generator= Generator(LATENT_DIM+ sum(label_dim), GENERATOR_HIDDEN_CHANNEL, data_size[0]).cuda()
 discriminator= Discriminator( data_size[0], DISCRIMINATOR_HIDDEN_CHANNEL, label_dim).cuda()
 optimizer= [generator.optimizer( lr=1E-4, betas= (0.5,0.999)),discriminator.optimizer( lr=1E-4, betas= (0.5,0.999))]
 print(generator)

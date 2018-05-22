@@ -92,7 +92,7 @@ class DataManager():
         x= np.concatenate([self.data[i][0] for i in in_names], 0)
         y= np.concatenate([self.data[i][1] for i in in_names], 0)
         self.data[name]=DataLoader(FaceDataset(x, y, self.hair.n_colors, self.eyes.n_colors, flip= flip),batch_size=batch_size, shuffle=shuffle)
-        return x.shape[1:], self.hair.n_colors+ self.eyes.n_colors
+        return x.shape[1:], [self.hair.n_colors, self.eyes.n_colors]
     def train(self,name, generator, discriminator, optimizer, epoch, print_every=1):
         start= time.time()
         generator.train()
@@ -101,17 +101,19 @@ class DataManager():
         generator_optimizer= optimizer[0]
         discriminator_optimizer= optimizer[1]
         
-        criterion= nn.BCELoss()
+        criterion_bce= nn.BCELoss()
+        criterion_cce= nn.CrossEntropyLoss()
         total_loss= [0,0,0]     # G, D, C
         batch_loss= [0,0,0]     # G, D, C
         total_accu= [0,0,0]     # G, D_real, D_fake
         batch_accu= [0,0,0]     # G, D_real, D_fake
         
         data_size= len(self.data[name].dataset)
-        for j, (i, c) in enumerate(self.data[name]):
+        for j, (i, h, e) in enumerate(self.data[name]):
             batch_index=j+1
             origin_i = Variable(i).cuda()
-            origin_c = Variable(c).cuda()
+            origin_h = Variable(h).squeeze(1).cuda()
+            origin_e = Variable(e).squeeze(1).cuda()
             # update discriminator
             for k in range(self.discriminator_update_num):
                 hair_index= torch.rand(len(i),1).random_(0,self.hair.n_colors).long()
@@ -120,20 +122,22 @@ class DataManager():
                 latent_eyes= torch.zeros(len(i), self.eyes.n_colors).scatter_(1,eyes_index,1)
                 latent_c = torch.cat((latent_hair, latent_eyes),1)
                 latent = Variable(torch.cat((torch.randn(len(i),self.latent_dim),latent_c),1).cuda())
-                fake_i, fake_c= discriminator(generator(latent))
-                real_i, real_c= discriminator(origin_i)
+                fake_i, fake_hair, fake_eyes= discriminator(generator(latent))
+                real_i, real_hair, real_eyes= discriminator(origin_i)
                 zero= Variable( torch.rand(len(i),1)*0.3).cuda()
                 one= Variable( torch.rand(len(i),1)*0.5 + 0.7).cuda()
-                loss_fake_i= criterion( fake_i, zero)
-                loss_real_i= criterion( real_i, one)
-                loss_fake_c= criterion( fake_c, Variable(latent_c.cuda()))
-                loss_real_c= criterion( real_c, origin_c)
-                loss= (loss_fake_i + loss_fake_c + loss_real_i + loss_real_c)
+                loss_fake_i= criterion_bce( fake_i, zero)
+                loss_real_i= criterion_bce( real_i, one)
+                loss_fake_hair= criterion_cce( fake_hair, Variable(hair_index.squeeze(1).cuda()))
+                loss_fake_eyes= criterion_cce( fake_eyes, Variable(eyes_index.squeeze(1).cuda()))
+                loss_real_hair= criterion_cce( real_hair, origin_h)
+                loss_real_eyes= criterion_cce( real_eyes, origin_e)
+                loss= (loss_fake_i + loss_fake_hair + loss_fake_eyes + loss_real_i + loss_real_hair + loss_real_eyes)
                 discriminator_optimizer.zero_grad()
                 loss.backward()
                 discriminator_optimizer.step()
                 batch_loss[1]+= float(loss_fake_i)+ float( loss_real_i)
-                batch_loss[2]+= float(loss_fake_c)+ float( loss_real_c)
+                batch_loss[2]+= float(loss_fake_hair)+ float(loss_fake_eyes)+ float( loss_real_hair)+ float( loss_real_eyes)
                 batch_accu[1]+= int(torch.sum(real_i>0.5))
                 batch_accu[2]+= int(torch.sum(fake_i<0.5))
                 #print(float(loss))
@@ -146,17 +150,18 @@ class DataManager():
                 latent_eyes= torch.zeros(len(i), self.eyes.n_colors).scatter_(1,eyes_index,1)
                 latent_c = torch.cat((latent_hair, latent_eyes),1)
                 latent = Variable(torch.cat((torch.randn(len(i),self.latent_dim),latent_c),1).cuda())
-                fake_i, fake_c= discriminator(generator(latent))
+                fake_i, fake_hair, fake_eyes= discriminator(generator(latent))
                 one= Variable( torch.rand(len(i),1)*0.5 + 0.7).cuda()
-                loss_fake_i= criterion( fake_i, one)
-                loss_fake_c= criterion( fake_c, Variable(latent_c.cuda()))
-                loss= (loss_fake_i + loss_fake_c )
+                loss_fake_i= criterion_bce( fake_i, one)
+                loss_fake_hair= criterion_cce( fake_hair, Variable(hair_index.squeeze(1).cuda()))
+                loss_fake_eyes= criterion_cce( fake_eyes, Variable(eyes_index.squeeze(1).cuda()))
+                loss= (loss_fake_i + loss_fake_hair + loss_fake_eyes)
                 #loss=  torch.mean(-torch.log(discriminator(generator(batch_x))))
                 generator_optimizer.zero_grad()
                 loss.backward()
                 generator_optimizer.step()
                 batch_loss[0]+= float(loss_fake_i)
-                batch_loss[2]+= float(loss_fake_c)
+                batch_loss[2]+= float(loss_fake_hair) + float(loss_fake_eyes)
                 batch_accu[0]+= int(torch.sum(fake_i>0.5))
                 #print(float(loss))
 
@@ -321,42 +326,33 @@ class Generator(nn.Module):
 class Discriminator(nn.Module):
     def __init__(self, input_size, hidden_size, label_dim):
         super(Discriminator, self).__init__()
-        self.LeakyReLU = nn.LeakyReLU(0.2, inplace=True)
-        self.conv1 = nn.Conv2d( input_size, hidden_size, 4, 2, 1, bias=False)
-        self.conv2 = nn.Conv2d(hidden_size, hidden_size * 2, 4, 2, 1, bias=False)
-        self.BatchNorm2 = nn.BatchNorm2d(hidden_size * 2)
-        self.conv3 = nn.Conv2d(hidden_size * 2, hidden_size * 4, 4, 2, 1, bias=False)
-        self.BatchNorm3 = nn.BatchNorm2d(hidden_size * 4)
-        self.conv4 = nn.Conv2d(hidden_size * 4, hidden_size * 8, 4, 2, 1, bias=False)
-        self.BatchNorm4 = nn.BatchNorm2d(hidden_size * 8)
-        self.conv5 = nn.Conv2d(hidden_size * 8, hidden_size * 1, 4, 1, 0, bias=False)
-        self.disc_linear = nn.Linear(hidden_size * 1, 1)
-        self.aux_linear = nn.Linear(hidden_size * 1, label_dim)
+        self.main = nn.Sequential(
+            nn.Conv2d( input_size, hidden_size, 4, 2, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(hidden_size, hidden_size * 2, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(hidden_size * 2),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(hidden_size * 2, hidden_size * 4, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(hidden_size * 4),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(hidden_size * 4, hidden_size * 8, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(hidden_size * 8),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(hidden_size * 8, hidden_size * 1, 4, 1, 0, bias=False))
+        self.discriminator= nn.Sequential(
+            nn.Linear(hidden_size * 1, 1),
+            nn.Sigmoid())
+        self.aux_linear1 = nn.Linear(hidden_size * 1, label_dim[0])
+        self.aux_linear2 = nn.Linear(hidden_size * 1, label_dim[1])
         self.softmax = nn.Softmax(1)
         self.sigmoid = nn.Sigmoid()
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.LeakyReLU(x)
-
-        x = self.conv2(x)
-        x = self.BatchNorm2(x)
-        x = self.LeakyReLU(x)
-
-        x = self.conv3(x)
-        x = self.BatchNorm3(x)
-        x = self.LeakyReLU(x)
-
-        x = self.conv4(x)
-        x = self.BatchNorm4(x)
-        x = self.LeakyReLU(x)
-
-        x = self.conv5(x)
+        x = self.main(x)
         x = x.view(x.size(0), -1)
-        c = self.aux_linear(x)
-        c = self.softmax(c)
-        s = self.disc_linear(x)
-        s = self.sigmoid(s)
-        return s,c
+        s = self.discriminator(x)
+        c1= self.aux_linear1(x)
+        c2= self.aux_linear1(x)
+        return s,c1,c2
     def make_layers(self, input_channel, cfg,  batch_norm=False):
         #cfg = [(64,2), (64,2)]
         layers = []
@@ -394,8 +390,9 @@ class FaceDataset(Dataset):
         else: x= self.image[index]
         x=(torch.FloatTensor(x)- 127.5)/127.5
         if self.rotate: x=torchvision.transforms.RandomRotation(5)
-        c=torch.FloatTensor([int(i==self.c[index,0]) for i in range(self.n_hair_c)] + [int(i==self.c[index,1]) for i in range(self.n_eyes_c)])
-        return x, c
+        c1=torch.LongTensor([int(self.c[index,0])])
+        c2=torch.LongTensor([int(self.c[index,1])])
+        return x, c1, c2
     def __len__(self):
         return len(self.image)*self.flip_n
 class Color:
