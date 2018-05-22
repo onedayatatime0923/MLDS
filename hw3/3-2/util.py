@@ -174,7 +174,7 @@ class DataManager():
         print('\rTrain Epoch: {} | [{}/{} ({:.0f}%)] | Total Loss G : {:.6f} D : {:.6f} C : {:.6f} | Total Accu G: {:.2f}% D_real: {:.2f}% D_fake: {:.2f}% | Time: {}  '.format(
                         epoch , data_size, data_size, 100. ,
                         float(total_loss[0])/batch_index,float(total_loss[1])/batch_index, float(total_loss[2])/ batch_index,
-                        float(total_accu[0])/batch_index,float(total_accu[1])/batch_index, float(total_accu[2])/ batch_index,
+                        100.* float(total_accu[0])/ data_size, 100.* float(total_accu[1])/ data_size, 100.* float(total_accu[2])/ data_size,
                         self.timeSince(start, 1)))
         if self.writer != None:
             self.writer.add_scalar('generator loss', float(total_loss[0])/ batch_index, epoch)
