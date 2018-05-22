@@ -169,7 +169,7 @@ class DataManager():
             self.writer.add_scalar('classification loss', float(total_loss[2])/ batch_index, epoch)
         print('-'*80)
         return total_loss[0]/ batch_index, total_loss[1]/ batch_index, total_loss[2]/ batch_index
-    def val(self, generator, discriminator, n=20, hair_c=0, eyes_c=0, epoch=None, path=None, sample_i_path= None):
+    def val(self, generator, discriminator, n=20, hair_c=[0,1,2], eyes_c=[0,1], epoch=None, path=None, sample_i_path= None):
         generator.eval()
         discriminator.eval()
         
@@ -179,14 +179,16 @@ class DataManager():
         latent_no= Variable(torch.cat((x, c_no),1).cuda())
         predict.extend(generator(latent_no).cpu().data.unsqueeze(1))
         #for l in range(self.hair.n_colors + self.eyes.n_colors):
-        c_yes= torch.FloatTensor([[ int( i == hair_c) for i in range(self.hair.n_colors)] + [ int( i == eyes_c) for i in range(self.eyes.n_colors)]]).repeat(n,1)
-        latent_yes= Variable(torch.cat((x, c_yes),1).cuda())
-        predict.extend(generator(latent_yes).cpu().data.unsqueeze(1))
+        for h in hair_c:
+            for e in eyes_c:
+                c_yes= torch.FloatTensor([[ int( i == h) for i in range(self.hair.n_colors)] + [ int( i == e) for i in range(self.eyes.n_colors)]]).repeat(n,1)
+                latent_yes= Variable(torch.cat((x, c_yes),1).cuda())
+                predict.extend(generator(latent_yes).cpu().data.unsqueeze(1))
         predict= torch.cat(predict,0)
 
         if self.writer!=None:
-            #self.write(predict,path,'gan')
-            self.writer.add_image('sample image result', torchvision.utils.make_grid(predict, nrow=n, normalize=True, range=(-1,1)), epoch)
+            self.writer.add_image('sample image result', torchvision.utils.make_grid(predict, normalize=True, range=(-1,1), nrow= n), epoch)
+        if path != None: self.write(predict,path,'gan')
         if sample_i_path != None: self.plot_grid(torchvision.utils.make_grid((predict*127.5)+127.5, nrow= n), sample_i_path)
     def visualize_latent_space(self, name, encoder, path):
         class_0=[]
@@ -214,11 +216,7 @@ class DataManager():
         data=data.numpy()
         #print(output.shape)
         for i in range(data.shape[0]):
-            if mode== 'vae':
-                im=data[i].transpose((1,2,0))*255
-            elif mode== 'gan':
-                im=(data[i].transpose((1,2,0))*127.5)+127.5
-            else: raise ValueError('Wrong mode')
+            im=(data[i].transpose((1,2,0))*127.5)+127.5
             im=im.astype(np.uint8)
             image = Image.fromarray(im,'RGB')
             image.save('{}/{:0>4}.png'.format(path,i))
