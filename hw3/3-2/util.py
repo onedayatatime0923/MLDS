@@ -74,15 +74,14 @@ class DataManager():
         with open(c_path, 'r') as f:
             for line in f:
                 data= line.replace('\n','').split(',',1)[1].split(' ')
-                hair_c, eyes_c= self.hair.addColor(data[0]), self.hair.addColor(data[2])
-                
+                hair_c, eyes_c= self.hair.addColor(data[0]), self.eyes.addColor(data[2])
                 y.append(np.array([hair_c,eyes_c],dtype=np.uint8))
                 print('\rreading {} class...{}'.format(name,len(y)),end='')
         print('\rreading {} class...finish'.format(name))
         x=np.array(x)
         y=np.array(y)
         self.data[name]=[x,y]
-    def dataloader(self, name, in_names, batch_size= 128, shuffle=True):
+    def dataloader(self, name, in_names, batch_size= 128, shuffle=True, flip=False):
         '''
         print(self.data['anime'][0].shape)
         print(self.data['anime'][1].shape)
@@ -91,7 +90,7 @@ class DataManager():
         '''
         x= np.concatenate([self.data[i][0] for i in in_names], 0)
         y= np.concatenate([self.data[i][1] for i in in_names], 0)
-        self.data[name]=DataLoader(FaceDataset(x, y, self.hair.n_colors, self.eyes.n_colors, flip= False),batch_size=batch_size, shuffle=shuffle)
+        self.data[name]=DataLoader(FaceDataset(x, y, self.hair.n_colors, self.eyes.n_colors, flip= flip),batch_size=batch_size, shuffle=shuffle)
         return x.shape[1:], self.hair.n_colors+ self.eyes.n_colors
     def train(self,name, generator, discriminator, optimizer, epoch, print_every=1):
         start= time.time()
@@ -114,7 +113,11 @@ class DataManager():
             origin_c = Variable(c).cuda()
             # update discriminator
             for k in range(self.discriminator_update_num):
-                latent_c = torch.zeros(len(i),self.hair.n_colors + self.eyes.n_colors).random_(0,2)
+                hair_index= torch.rand(len(i),1).random_(0,self.hair.n_colors).long()
+                latent_hair= torch.zeros(len(i), self.hair.n_colors).scatter_(1,hair_index,1)
+                eyes_index= torch.rand(len(i),1).random_(0,self.eyes.n_colors).long()
+                latent_eyes= torch.zeros(len(i), self.eyes.n_colors).scatter_(1,eyes_index,1)
+                latent_c = torch.cat((latent_hair, latent_eyes),1)
                 latent = Variable(torch.cat((torch.randn(len(i),self.latent_dim),latent_c),1).cuda())
                 fake_i, fake_c= discriminator(generator(latent))
                 real_i, real_c= discriminator(origin_i)
@@ -136,7 +139,11 @@ class DataManager():
 
             # update generator
             for k in range(self.generator_update_num):
-                latent_c = torch.zeros(len(i),self.hair.n_colors + self.eyes.n_colors).random_(0,2)
+                hair_index= torch.rand(len(i),1).random_(0,self.hair.n_colors).long()
+                latent_hair= torch.zeros(len(i), self.hair.n_colors).scatter_(1,hair_index,1)
+                eyes_index= torch.rand(len(i),1).random_(0,self.eyes.n_colors).long()
+                latent_eyes= torch.zeros(len(i), self.eyes.n_colors).scatter_(1,eyes_index,1)
+                latent_c = torch.cat((latent_hair, latent_eyes),1)
                 latent = Variable(torch.cat((torch.randn(len(i),self.latent_dim),latent_c),1).cuda())
                 fake_i, fake_c= discriminator(generator(latent))
                 one= Variable( torch.rand(len(i),1)*0.5 + 0.7).cuda()
@@ -182,7 +189,7 @@ class DataManager():
             self.writer.add_scalar('classification loss', float(total_loss[2])/ batch_index, epoch)
         print('-'*80)
         return total_loss[0]/ batch_index, total_loss[1]/ batch_index, total_loss[2]/ batch_index
-    def val(self, generator, discriminator, n=20, hair_c=[0,1,2], eyes_c=[0,1], epoch=None, path=None, sample_i_path= None):
+    def val(self, generator, discriminator, n=20, hair_c=[0,1,2], eyes_c=[0,1], epoch=None, dir_path=None, grid_path= None):
         generator.eval()
         discriminator.eval()
         
@@ -201,8 +208,8 @@ class DataManager():
 
         if self.writer!=None:
             self.writer.add_image('sample image result', torchvision.utils.make_grid(predict, normalize=True, range=(-1,1), nrow= n), epoch)
-        if path != None: self.write(predict,path,'gan')
-        if sample_i_path != None: self.plot_grid(torchvision.utils.make_grid((predict*127.5)+127.5, nrow= n), sample_i_path)
+        if dir_path != None: self.write(predict,dir_path,'gan')
+        if grid_path != None: self.plot_grid(torchvision.utils.make_grid((predict*127.5)+127.5, nrow= n), grid_path)
     def visualize_latent_space(self, name, encoder, path):
         class_0=[]
         class_1=[]
