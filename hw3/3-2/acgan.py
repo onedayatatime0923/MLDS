@@ -18,9 +18,9 @@ TENSORBOARD_DIR= './runs/acgan'
 
 dm = DataManager(LATENT_DIM,DISCRIMINATOR_UPDATE_NUM,GENERATOR_UPDATE_NUM)
 dm.tb_setting(TENSORBOARD_DIR)
-#dm.get_anime_data('anime', i_path= '{}/faces'.format(INPUT_DIR), c_path= '{}/tags_clean.csv'.format(INPUT_DIR))
 dm.get_extra_data('extra', i_path= '{}/extra_data/images'.format(INPUT_DIR), c_path= '{}/extra_data/tags.csv'.format(INPUT_DIR))
-data_size, label_dim= dm.dataloader('train',['extra'] )
+dm.get_anime_data('anime', i_path= '{}/faces'.format(INPUT_DIR), c_path= '{}/tags_clean.csv'.format(INPUT_DIR))
+data_size, label_dim= dm.dataloader('train',['extra', 'anime'] )
 print('data_size: {}'.format(data_size))
 print('label_dim: {}'.format(label_dim))
 

@@ -40,7 +40,7 @@ class DataManager():
         x=[]
         file_len = len([file for file in os.listdir(i_path) if file.endswith('.jpg')])
         for i in range(file_len):
-            im=Image.open('{}/{}.jpg'.format(i_path,i)).resize( (64, 64), Image.BILINEAR )
+            im=Image.open('{}/{}.jpg'.format(i_path,i)).resize( (64, 64))
             x.append(np.array(im,dtype=np.uint8).transpose((2,0,1)))
             print('\rreading {} image...{}'.format(name,len(x)),end='')
         print('\rreading {} image...finish'.format(name))
@@ -49,13 +49,14 @@ class DataManager():
         with open(c_path, 'r') as f:
             for line in f:
                 data= line.replace('\n','').split(',',1)[1].split('\t')
-                hair_c, eyes_c= -1, -1
+                hair_c= self.hair.color2index['None']
+                eyes_c= self.eyes.color2index['None']
                 for c in data:
                     if 'hair' in c:
-                        hair_c= self.hair.addColor(c.split(':',1)[0])
+                        hair_c= self.hair.addColor(c.split(' ',1)[0])
                 for c in data:
                     if 'eyes' in c:
-                        eyes_c= self.eyes.addColor(c.split(':',1)[0])
+                        eyes_c= self.eyes.addColor(c.split(' ',1)[0])
                 y.append(np.array([hair_c,eyes_c],dtype=np.uint8))
                 print('\rreading {} class...{}'.format(name,len(y)),end='')
         print('\rreading {} class...finish'.format(name))
@@ -195,7 +196,7 @@ class DataManager():
             self.writer.add_scalar('classification loss', float(total_loss[2])/ batch_index, epoch)
         print('-'*80)
         return total_loss[0]/ batch_index, total_loss[1]/ batch_index, total_loss[2]/ batch_index
-    def val(self, generator, discriminator, n=20, hair_c=[0,1,2], eyes_c=[0,1], epoch=None, dir_path=None, grid_path= None):
+    def val(self, generator, discriminator, n=20, hair_c=[0,1,12,13], eyes_c=[0,1,12,13], epoch=None, dir_path=None, grid_path= None):
         generator.eval()
         discriminator.eval()
         
@@ -398,10 +399,10 @@ class FaceDataset(Dataset):
 class Color:
     def __init__(self, vocabulary_file= None):
         if vocabulary_file == None:
-            self.color2index= {}
-            self.color2count = {}
-            self.index2color = {}
-            self.n_colors = 0  # Count SOS and EOS and PAD and UNK
+            self.color2index= {'None':0}
+            self.color2count = {'None':1}
+            self.index2color = {0:'None'}
+            self.n_colors = 1  # Count SOS and EOS and PAD and UNK
         else:
             self.load(vocabulary_file)
     def addColors(self, sentences):
