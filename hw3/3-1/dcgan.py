@@ -22,13 +22,16 @@ args = parser.parse_args()
 writer = SummaryWriter('runs/exp_'+args.exp)
 
 class imagedataset(Dataset):
-    def __init__(self,img):
-        self.img = img
+    def __init__(self,img1,img2):
+        self.img1 = img1
+        self.img2 = img2 
     def __getitem__(self,i):    
-        x = self.img[i]
+        l = self.img1.size()[0]
+        if i < l : x = self.img1[i]
+        else : x = self.img2[i-l]
         return x
     def __len__(self):
-        return self.img.shape[0]
+        return self.img1.shape[0] + self.img2.shape[0] 
 
 def get_data(path,num,name,batch_size,shuffle=False):
     data = os.listdir(path)
@@ -40,6 +43,7 @@ def get_data(path,num,name,batch_size,shuffle=False):
     for x in data:
         print(os.path.join(path,x))
         im = Image.open(os.path.join(path,x))
+        im = im.resize((64,64), Image.BILINEAR)
         im = np.array(im)
         #print(im.shape)
         #input()
@@ -150,18 +154,23 @@ optimizerG = optim.Adam(net_G.parameters(), lr=0.0001, betas=(0.5, 0.999))
 
 criterion = nn.BCELoss()
 '''
-training_set = get_data('../data/extra_data/images',num=args.train_num,name='train',batch_size=args.batch_size,shuffle=True)
+training_set = get_data('../data/faces',num=args.train_num,name='train',batch_size=args.batch_size,shuffle=True)
 print('saved data ...')
 input()
 
 '''
-arr = np.load('train.npy')[:args.train_num]
-print(arr)
-input()
-print('loaded training set')
-print(arr.shape)
-arr = torch.FloatTensor(arr)                                                                                                           
-dataset = imagedataset(arr)
+arr1 = np.load('train.npy')
+arr2 = np.load('train_extra.npy')
+#arr = np.concatenate((arr1,arr2),axis=0)
+#print(arr.shape)
+#arr = arr1[:args.train_num]
+#print(arr)
+#input()
+#print('loaded training set')
+#print(arr.shape)
+arr1 = torch.FloatTensor(arr1)
+arr2 = torch.FloatTensor(arr2) 
+dataset = imagedataset(arr1,arr2)
 training_set = DataLoader(dataset,batch_size=args.batch_size,shuffle=True)
 
 
@@ -269,23 +278,23 @@ def train_iter(epoch,D,G,iteration):
                                     
 def rand_faces(num,epoch,generator):
     generator.eval()    
-    z = np.random.normal(0, 1, (32, args.latent_size))
+    z = np.random.normal(0, 1, (25, args.latent_size))
     z = Variable(torch.FloatTensor(z), volatile=True)
     z = z.cuda() # generator(z) shape (-1,64,64,3)
     recon = generator(z).permute(0,3,1,2)
     recon = recon.data 
     img = torchvision.utils.make_grid(recon,nrow=num,normalize=True)
-    writer.add_image(str(epoch)+'_random_sample.jpg', img , epoch)
+    writer.add_image(str(epoch)+'_random_sample.png', img , epoch)
     #recon = torchvision.utils.make_grid(recon,nrow=num,normalize=True)
     #return recon.permute(1,2,0).cpu().numpy()
 
 
 for epoch in range(1,args.epoch+1):
-    np.random.seed(1)
+    np.random.seed(10)
     step = train_iter(epoch,net_D,net_G,(epoch-1)*len(training_set))     
     #net_D = torch.load('model/dcgan/model_discriminator_140.pt')
     #net_G = torch.load('model/dcgan/model_generator_140.pt')
-    rand_faces(8,epoch,net_G)
+    rand_faces(5,epoch,net_G)
     if epoch%5 == 0 and epoch > 20 :
         torch.save(net_G,'model_generator_'+str(epoch)+'.pt')
 
