@@ -43,7 +43,7 @@ def get_data(path,num,name,batch_size,shuffle=False):
     for x in data:
         print(os.path.join(path,x))
         im = Image.open(os.path.join(path,x))
-        im = im.resize((64,64), Image.BILINEAR)
+        im = im.resize((64,64), Image.ANTIALIAS)
         im = np.array(im)
         #print(im.shape)
         #input()
@@ -55,7 +55,7 @@ def get_data(path,num,name,batch_size,shuffle=False):
     print('saving data ...')
     np.save(name+'.npy',arr)
     arr = torch.FloatTensor(arr)
-    dataset = imagedataset(arr)
+    dataset = imagedataset(arr,arr)
     return DataLoader(dataset,batch_size=batch_size,shuffle=shuffle)
 
 class discriminator(nn.Module):
@@ -66,33 +66,32 @@ class discriminator(nn.Module):
         self.ndf = ndf #64
         self.latent_size = latent_size 
         #(3,64,64)
-        self.e1 = nn.Conv2d(3,32,4,2,1, bias=False) #(32,32,32)
-        self.bn1 = nn.BatchNorm2d(32)
+        #self.e1 = nn.Conv2d(3,32,4,2,1, bias=True) #(32,32,32)
+        #self.bn1 = nn.BatchNorm2d(32)
 
-        self.e2 = nn.Conv2d(32,64,4,2,1, bias=False) #(64,16,16)
+        self.e2 = nn.Conv2d(3,64,4,2,1, bias=True) #(64,32,32)
         self.bn2 = nn.BatchNorm2d(64)
  
-        self.e3 = nn.Conv2d(64,128,4,2,1, bias=False) #(128,8,8)
+        self.e3 = nn.Conv2d(64,128,4,2,1, bias=True) #(128,16,16)
         self.bn3 = nn.BatchNorm2d(128)
         
-        self.e4 = nn.Conv2d(128,256,4,2,1, bias=False) #(256,4,4)
+        self.e4 = nn.Conv2d(128,256,4,2,1, bias=True) #(256,8,8)
         self.bn4 = nn.BatchNorm2d(256)
         
-        self.e5 = nn.Conv2d(256,512,4,2,1, bias=False) #(512,2,2)
+        self.e5 = nn.Conv2d(256,512,4,2,1, bias=True) #(512,1,1)
         self.bn5 = nn.BatchNorm2d(512)
 
-        self.e6 = nn.Conv2d(512,1,4,2,1, bias=False) #(1024,1,1)
-        #self.bn6 = nn.BatchNorm2d(1024)
+        self.e6 = nn.Conv2d(512,1,4,1,0, bias=True) #(1,1,1)
 
         self.sigmoid = nn.Sigmoid()
-        self.leakyrelu = nn.LeakyReLU(0.2)
+        self.leakyrelu = nn.LeakyReLU(0.2,inplace=True)
     
     def forward(self,x):
         x = x.permute(0,3,1,2)
         #print('x size: ',x.size())
         #input()
-        h1 = self.leakyrelu(self.bn1(self.e1(x)))
-        h2 = self.leakyrelu(self.bn2(self.e2(h1)))
+        #h1 = self.leakyrelu(self.bn1(self.e1(x)))
+        h2 = self.leakyrelu(self.bn2(self.e2(x)))
         h3 = self.leakyrelu(self.bn3(self.e3(h2)))
         h4 = self.leakyrelu(self.bn4(self.e4(h3)))
         h5 = self.leakyrelu(self.bn5(self.e5(h4)))
@@ -109,39 +108,39 @@ class generator(nn.Module):
         self.ndf = ndf #64
         self.latent_size = latent_size 
 
-        self.d1 = nn.Linear(latent_size, 1024) # (1024,1,1)
-        
-        self.up1 = nn.ConvTranspose2d(1024,512,4,2,1, bias=False) # (512,2,2)
-        self.bn6 = nn.BatchNorm2d(512, 1.e-3)
+        self.up1 = nn.ConvTranspose2d(self.latent_size,512,4,1,0, bias=False) # (512,4,4)
+        self.bn6 = nn.BatchNorm2d(512)
 
-        self.up2 = nn.ConvTranspose2d(512,256,4,2,1, bias=False) # (256,4,4)
-        self.bn7 = nn.BatchNorm2d(256, 1.e-3)
+        self.up2 = nn.ConvTranspose2d(512,256,4,2,1, bias=False) # (256,8,8)
+        self.bn7 = nn.BatchNorm2d(256)
 
-        self.up3 = nn.ConvTranspose2d(256,128,4,2,1, bias=False) # (128,8,8)
-        self.bn8 = nn.BatchNorm2d(128, 1.e-3)
+        self.up3 = nn.ConvTranspose2d(256,128,4,2,1, bias=False) # (128,16,16)
+        self.bn8 = nn.BatchNorm2d(128)
 
-        self.up4 = nn.ConvTranspose2d(128,64,4,2,1, bias=False) # (64,16,16)
-        self.bn9 = nn.BatchNorm2d(64, 1.e-3)
+        self.up4 = nn.ConvTranspose2d(128,64,4,2,1, bias=False) # (64,32,32)
+        self.bn9 = nn.BatchNorm2d(64)
  
-        self.up5 = nn.ConvTranspose2d(64,32,4,2,1, bias=False) # (32,32,32)
-        self.bn10 = nn.BatchNorm2d(32, 1.e-3)
+        self.up5 = nn.ConvTranspose2d(64,3,4,2,1, bias=False) # (3,64,64)
+        #self.bn10 = nn.BatchNorm2d(32)
  
-        self.up6 = nn.ConvTranspose2d(32,3,4,2,1, bias=False) # (3,64,64)
-        self.bn11 = nn.BatchNorm2d(3)
+        #self.up6 = nn.ConvTranspose2d(32,3,4,2,1, bias=False) # (3,64,64)
+        #self.bn11 = nn.BatchNorm2d(3)
 
-        self.leakyrelu = nn.LeakyReLU(0.2)
+        self.relu = nn.ReLU(inplace=True)
         self.tanh = nn.Tanh()
 
-    def forward(self,x):
-        h0 = self.leakyrelu(self.d1(x)) # (1024)
-        h0 = h0.view(-1,1024,1,1)
-        h1 = self.leakyrelu(self.bn6(self.up1(h0)))
-        h2 = self.leakyrelu(self.bn7(self.up2(h1)))
-        h3 = self.leakyrelu(self.bn8(self.up3(h2)))
-        h4 = self.leakyrelu(self.bn9(self.up4(h3)))
-        h5 = self.leakyrelu(self.bn10(self.up5(h4)))
-        h6 = self.tanh(self.bn11(self.up6(h5)))
-        return h6.permute(0,2,3,1) 
+    def forward(self,h0):
+        #h0 = self.relu(self.d1(x)) # (1024)
+        #h0 = h0.view(-1,1024,1,1)
+        h0 = h0.view(-1,self.latent_size,1,1)
+        h1 = self.relu(self.bn6(self.up1(h0)))
+        h2 = self.relu(self.bn7(self.up2(h1)))
+        h3 = self.relu(self.bn8(self.up3(h2)))
+        h4 = self.relu(self.bn9(self.up4(h3)))
+        h5 = self.tanh(self.up5(h4))
+        #h5 = self.relu(self.bn10(self.up5(h4)))
+        #h6 = self.tanh(self.up6(h5))
+        return h5.permute(0,2,3,1) 
  
 net_D = discriminator(nc=3, ngf=64, ndf=64, latent_size = args.latent_size ).cuda()
 net_G = generator(nc=3, ngf=64, ndf=64, latent_size = args.latent_size ).cuda() 
@@ -149,16 +148,16 @@ print(net_D)
 print('-'*50)
 print(net_G)
 print('-'*50) 
-optimizerD = optim.Adam(net_D.parameters(), lr=0.0001, betas=(0.5, 0.999))
-optimizerG = optim.Adam(net_G.parameters(), lr=0.0001, betas=(0.5, 0.999))
+optimizerD = optim.Adam(net_D.parameters(), lr=0.0002, betas=(0.5, 0.999))
+optimizerG = optim.Adam(net_G.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
 criterion = nn.BCELoss()
-'''
-training_set = get_data('../data/faces',num=args.train_num,name='train',batch_size=args.batch_size,shuffle=True)
-print('saved data ...')
-input()
 
-'''
+#training_set = get_data('../data/faces',num=args.train_num,name='train',batch_size=args.batch_size,shuffle=True)
+#print('saved data ...')
+#input()
+
+
 arr1 = np.load('train.npy')
 arr2 = np.load('train_extra.npy')
 #arr = np.concatenate((arr1,arr2),axis=0)
@@ -278,8 +277,9 @@ def train_iter(epoch,D,G,iteration):
                                     
 def rand_faces(num,epoch,generator):
     generator.eval()    
-    z = np.random.normal(0, 1, (25, args.latent_size))
-    z = Variable(torch.FloatTensor(z), volatile=True)
+    #z = np.random.normal(0, 1, (25, args.latent_size))
+    #z = Variable(torch.FloatTensor(z), volatile=True)
+    z = Variable(torch.randn((25,args.latent_size)),volatile=True)
     z = z.cuda() # generator(z) shape (-1,64,64,3)
     recon = generator(z).permute(0,3,1,2)
     recon = recon.data 
@@ -290,7 +290,8 @@ def rand_faces(num,epoch,generator):
 
 
 for epoch in range(1,args.epoch+1):
-    np.random.seed(10)
+    #np.random.seed(10)
+    torch.manual_seed(424)
     step = train_iter(epoch,net_D,net_G,(epoch-1)*len(training_set))     
     #net_D = torch.load('model/dcgan/model_discriminator_140.pt')
     #net_G = torch.load('model/dcgan/model_generator_140.pt')
