@@ -176,8 +176,8 @@ def train(n_epochs, train_loader):
 		torchvision.utils.save_image(rand_outputs.cpu().data,
 								'./wgangp_outimgs/fig_%03d.jpg' %(epoch+1), nrow=8)
 		
-		torch.save(G.state_dict(), './saves/save_models/GP_Generator_%03d.pth'%(epoch+1))
-		torch.save(D.state_dict(), './saves/save_models/GP_Discriminator_%03d.pth'%(epoch+1))
+		torch.save(G.state_dict(), './saves/models_gp/GP_Generator_%03d.pth'%(epoch+1))
+		torch.save(D.state_dict(), './saves/models_gp/GP_Discriminator_%03d.pth'%(epoch+1))
 
 	with open('./saves/wgan_gp/D_loss.pkl', 'wb') as fp:
 		pickle.dump(D_loss_list, fp)
@@ -195,7 +195,7 @@ def main():
 	print("Read Data Done !!!")
 	train_loader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=1)
 	print("Enter Train")
-	train(300, train_loader)
+	train(200, train_loader)
 
 
 
