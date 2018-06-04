@@ -54,7 +54,6 @@ class DataManager():
                 for c in data:
                     if 'hair' in c:
                         hair_c= self.hair.addColor(c.split(' ',1)[0])
-                for c in data:
                     if 'eyes' in c:
                         eyes_c= self.eyes.addColor(c.split(' ',1)[0])
                 y.append(np.array([hair_c,eyes_c],dtype=np.uint8))
@@ -196,15 +195,17 @@ class DataManager():
             self.writer.add_scalar('classification loss', float(total_loss[2])/ batch_index, epoch)
         print('-'*80)
         return total_loss[0]/ batch_index, total_loss[1]/ batch_index, total_loss[2]/ batch_index
-    def val(self, generator, discriminator, n=20, hair_c=[0,1,12,13], eyes_c=[0,1,12,13], epoch=None, dir_path=None, grid_path= None):
+    def val(self, generator, discriminator, n=5, hair_c=[1,2], eyes_c=[1,2,3], epoch=None, dir_path=None, grid_path= None):
         generator.eval()
         discriminator.eval()
         
         x= torch.randn(n,self.latent_dim)
         predict= []
+        '''
         c_no= torch.FloatTensor([[ 0 for i in range(self.hair.n_colors + self.eyes.n_colors)]]).repeat(n,1)
         latent_no= Variable(torch.cat((x, c_no),1).cuda())
         predict.extend(generator(latent_no).cpu().data.unsqueeze(1))
+        '''
         #for l in range(self.hair.n_colors + self.eyes.n_colors):
         for h in hair_c:
             for e in eyes_c:
@@ -216,7 +217,8 @@ class DataManager():
         if self.writer!=None:
             self.writer.add_image('sample image result', torchvision.utils.make_grid(predict, normalize=True, range=(-1,1), nrow= n), epoch)
         if dir_path != None: self.write(predict,dir_path,'gan')
-        if grid_path != None: self.plot_grid(torchvision.utils.make_grid((predict*127.5)+127.5, nrow= n), grid_path)
+        #if grid_path != None: self.plot_grid(torchvision.utils.make_grid((predict*127.5)+127.5, nrow= n), grid_path)
+        if grid_path != None: self.save_imgs(predict, grid_path)
     def visualize_latent_space(self, name, encoder, path):
         class_0=[]
         class_1=[]
@@ -273,6 +275,22 @@ class DataManager():
         m = math.floor(s / 60)
         s -= m * 60
         return '%dm %ds' % (m, s)
+    def save_imgs(self,image, path):
+        # gen_imgs should be shape (25, 64, 64, 3)
+        r, c = 5, 5
+        gen_imgs = image.permute(0,2,3,1).numpy()
+        print(gen_imgs.shape)
+        input()
+        fig, axs = plt.subplots(r, c)
+        cnt = 0
+        for i in range(r):
+            for j in range(c):
+                axs[i,j].imshow(gen_imgs[cnt, :,:,:])
+                axs[i,j].axis('off')
+                cnt += 1
+        fig.savefig(path)
+        plt.close()
+
 class Generator(nn.Module):
     def __init__(self, input_size, hidden_size, output_size ):
         super(Generator, self).__init__()

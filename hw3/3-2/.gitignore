@@ -1,4 +1,6 @@
 
+model/*
+runs/*
+sample/*
 generator*
 discriminator*
-runs/*
