@@ -1,4 +1,3 @@
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -485,7 +484,7 @@ class AttnDecoderRNN(nn.Module):
     def __init__(self, hidden_size, vocab_size, layer_n, hop_n, dropout):
         super(AttnDecoderRNN, self).__init__()
         self.hidden_size = hidden_size
-        self.vocab_size = vocab_size
+        self.vocab_size = vocab_size 
         self.hop_n= hop_n 
         self.hidden= self.initHidden(layer_n)
 

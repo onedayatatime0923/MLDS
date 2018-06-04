@@ -10,6 +10,7 @@ import argparse
 import torch.optim as optim
 import torchvision
 import random , time , math
+import matplotlib.pyplot as plt
 from tensorboardX import SummaryWriter 
 
 parser =  argparse.ArgumentParser(description='dcgan model')
@@ -288,6 +289,28 @@ def rand_faces(num,epoch,generator):
     #recon = torchvision.utils.make_grid(recon,nrow=num,normalize=True)
     #return recon.permute(1,2,0).cpu().numpy()
 
+    recon = generator(z).cpu().data.numpy() 
+    #print(recon)
+    #input()
+    recon = (recon+1)*127.5 
+    recon = recon.astype(np.uint8)
+    save_imgs(recon,epoch)
+
+def save_imgs(gen_imgs,epoch):
+    r, c = 5, 5
+    #noise = np.random.normal(0, 1, (r * c, 100))
+    # gen_imgs should be shape (25, 64, 64, 3)
+    #gen_imgs = generator.predict(noise)
+    fig, axs = plt.subplots(r, c)
+    cnt = 0 
+    print(gen_imgs)
+    for i in range(r):
+        for j in range(c):
+            axs[i,j].imshow(gen_imgs[cnt, :,:,:])
+            axs[i,j].axis('off')
+            cnt += 1
+    fig.savefig("img/dcgan/output_"+str(epoch)+".png")
+    plt.close()
 
 for epoch in range(1,args.epoch+1):
     #np.random.seed(10)
@@ -297,7 +320,8 @@ for epoch in range(1,args.epoch+1):
     #net_G = torch.load('model/dcgan/model_generator_140.pt')
     rand_faces(5,epoch,net_G)
     if epoch%5 == 0 and epoch > 20 :
-        torch.save(net_G,'model_generator_'+str(epoch)+'.pt')
+        torch.save(net_G,'model/model_new/model_generator_'+str(epoch)+'.pt')
+ 
 
 
 

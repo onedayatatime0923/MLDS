@@ -1,4 +1,3 @@
-model/*
 runs/*
 train_extra.npy
 train.npy
