@@ -195,7 +195,7 @@ class DataManager():
             self.writer.add_scalar('classification loss', float(total_loss[2])/ batch_index, epoch)
         print('-'*80)
         return total_loss[0]/ batch_index, total_loss[1]/ batch_index, total_loss[2]/ batch_index
-    def val(self, generator, discriminator, n=5, hair_c=[1,2], eyes_c=[1,2,3], epoch=None, dir_path=None, grid_path= None):
+    def val(self, generator, discriminator, n=5, hair_c=[1,2,3,4,5], eyes_c=[1], epoch=None, dir_path=None, grid_path= None):
         generator.eval()
         discriminator.eval()
         
@@ -206,10 +206,10 @@ class DataManager():
         latent_no= Variable(torch.cat((x, c_no),1).cuda())
         predict.extend(generator(latent_no).cpu().data.unsqueeze(1))
         '''
-        #for l in range(self.hair.n_colors + self.eyes.n_colors):
         for h in hair_c:
             for e in eyes_c:
-                c_yes= torch.FloatTensor([[ int( i == h) for i in range(self.hair.n_colors)] + [ int( i == e) for i in range(self.eyes.n_colors)]]).repeat(n,1)
+                #c_yes= torch.FloatTensor([[ int( i == h) for i in range(self.hair.n_colors)] + [ int( i == e) for i in range(self.eyes.n_colors)]]).repeat(n,1)
+                c_yes= torch.FloatTensor([[ int( i == h) for i in range(18)] + [ int( i == e) for i in range(15)]]).repeat(n,1)
                 latent_yes= Variable(torch.cat((x, c_yes),1).cuda())
                 predict.extend(generator(latent_yes).cpu().data.unsqueeze(1))
         predict= torch.cat(predict,0)
@@ -279,8 +279,6 @@ class DataManager():
         # gen_imgs should be shape (25, 64, 64, 3)
         r, c = 5, 5
         gen_imgs = image.permute(0,2,3,1).numpy()
-        print(gen_imgs.shape)
-        input()
         fig, axs = plt.subplots(r, c)
         cnt = 0
         for i in range(r):
