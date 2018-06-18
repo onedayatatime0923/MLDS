@@ -85,17 +85,17 @@ class discriminator(nn.Module):
         self.e6 = nn.Conv2d(512,1,4,1,0, bias=True) #(1,1,1)
 
         self.sigmoid = nn.Sigmoid()
-        self.leakyrelu = nn.LeakyReLU(0.2,inplace=True)
+        self.relu = nn.ReLU(inplace=True)
     
     def forward(self,x):
         x = x.permute(0,3,1,2)
         #print('x size: ',x.size())
         #input()
         #h1 = self.leakyrelu(self.bn1(self.e1(x)))
-        h2 = self.leakyrelu(self.bn2(self.e2(x)))
-        h3 = self.leakyrelu(self.bn3(self.e3(h2)))
-        h4 = self.leakyrelu(self.bn4(self.e4(h3)))
-        h5 = self.leakyrelu(self.bn5(self.e5(h4)))
+        h2 = self.relu(self.e2(x))
+        h3 = self.relu(self.e3(h2))
+        h4 = self.relu(self.e4(h3))
+        h5 = self.relu(self.e5(h4))
         h6 = self.sigmoid(self.e6(h5))
  
         h6 = h6.view(-1,1).squeeze(1)
@@ -134,10 +134,10 @@ class generator(nn.Module):
         #h0 = self.relu(self.d1(x)) # (1024)
         #h0 = h0.view(-1,1024,1,1)
         h0 = h0.view(-1,self.latent_size,1,1)
-        h1 = self.relu(self.bn6(self.up1(h0)))
-        h2 = self.relu(self.bn7(self.up2(h1)))
-        h3 = self.relu(self.bn8(self.up3(h2)))
-        h4 = self.relu(self.bn9(self.up4(h3)))
+        h1 = self.relu(self.up1(h0))
+        h2 = self.relu(self.up2(h1))
+        h3 = self.relu(self.up3(h2))
+        h4 = self.relu(self.up4(h3))
         h5 = self.tanh(self.up5(h4))
         #h5 = self.relu(self.bn10(self.up5(h4)))
         #h6 = self.tanh(self.up6(h5))
@@ -309,7 +309,7 @@ def save_imgs(gen_imgs,epoch):
             axs[i,j].imshow(gen_imgs[cnt, :,:,:])
             axs[i,j].axis('off')
             cnt += 1
-    fig.savefig("img/dcgan/output_"+str(epoch)+".png")
+    fig.savefig("img/opt/output_"+str(epoch)+".png")
     plt.close()
 
 for epoch in range(1,args.epoch+1):
@@ -320,7 +320,7 @@ for epoch in range(1,args.epoch+1):
     #net_G = torch.load('model/dcgan/model_generator_140.pt')
     rand_faces(5,epoch,net_G)
     if epoch%5 == 0 and epoch > 20 :
-        torch.save(net_G,'model/model_new/model_generator_'+str(epoch)+'.pt')
+        torch.save(net_G,'model/opt/model_generator_'+str(epoch)+'.pt')
  
 
 
