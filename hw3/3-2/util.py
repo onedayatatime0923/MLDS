@@ -17,10 +17,12 @@ assert time and np
 
 
 class DataManager():
-    def __init__(self,latent_dim=0, discriminator_update_num=0, generator_update_num=0):
+    def __init__(self,latent_dim=0, discriminator_update_num=0, generator_update_num=0, hair_path=None, eyes_path=None):
         self.data={}
-        self.hair= Color()
-        self.eyes= Color()
+        if hair_path != None: self.hair= Color(hair_path)
+        else: self.hair= Color()
+        if eyes_path != None: self.eyes= Color(eyes_path)
+        else: self.eyes= Color()
         self.discriminator_update_num= discriminator_update_num
         self.generator_update_num= generator_update_num
         self.latent_dim= latent_dim
@@ -208,8 +210,7 @@ class DataManager():
         '''
         for h in hair_c:
             for e in eyes_c:
-                #c_yes= torch.FloatTensor([[ int( i == h) for i in range(self.hair.n_colors)] + [ int( i == e) for i in range(self.eyes.n_colors)]]).repeat(n,1)
-                c_yes= torch.FloatTensor([[ int( i == h) for i in range(18)] + [ int( i == e) for i in range(15)]]).repeat(n,1)
+                c_yes= torch.FloatTensor([[ int( i == h) for i in range(self.hair.n_colors)] + [ int( i == e) for i in range(self.eyes.n_colors)]]).repeat(n,1)
                 latent_yes= Variable(torch.cat((x, c_yes),1).cuda())
                 predict.extend(generator(latent_yes).cpu().data.unsqueeze(1))
         predict= torch.cat(predict,0)
@@ -218,7 +219,25 @@ class DataManager():
             self.writer.add_image('sample image result', torchvision.utils.make_grid(predict, normalize=True, range=(-1,1), nrow= n), epoch)
         if dir_path != None: self.write(predict,dir_path,'gan')
         #if grid_path != None: self.plot_grid(torchvision.utils.make_grid((predict*127.5)+127.5, nrow= n), grid_path)
-        if grid_path != None: self.save_imgs(predict, grid_path)
+        if grid_path != None: self.save_imgs((predict *127.5) +127.5, grid_path)
+    def test(self, generator, discriminator, in_path, out_path):
+        generator.eval()
+        discriminator.eval()
+
+        y=[]
+        with open(in_path, 'r') as f:
+            for line in f:
+                data= line.replace('\n','').split(',',1)[1].split(' ')
+                hair_c, eyes_c= self.hair.color2index[data[0]], self.eyes.color2index[data[2]]
+                c= torch.FloatTensor([[ int( i == hair_c) for i in range(self.hair.n_colors)] + [ int( i == eyes_c) for i in range(self.eyes.n_colors)]])
+                y.append(c)
+        n=len(y)
+        y=torch.cat(y)
+        x= torch.randn(n,self.latent_dim)
+        latent= Variable(torch.cat((x, y),1).cuda())
+        predict=generator(latent).cpu().data
+
+        if out_path != None: self.save_imgs((predict *127.5) +127.5, out_path)
     def visualize_latent_space(self, name, encoder, path):
         class_0=[]
         class_1=[]
@@ -278,7 +297,7 @@ class DataManager():
     def save_imgs(self,image, path):
         # gen_imgs should be shape (25, 64, 64, 3)
         r, c = 5, 5
-        gen_imgs = image.permute(0,2,3,1).numpy()
+        gen_imgs = image.permute(0,2,3,1).numpy().astype(np.uint8)
         fig, axs = plt.subplots(r, c)
         cnt = 0
         for i in range(r):
@@ -449,4 +468,4 @@ class Color:
                 self.color2count[color]=0
                 self.index2color[i] = color
                 i+=1
-            self.n_words=len(self.color2index)
+        self.n_colors=len(self.color2index)

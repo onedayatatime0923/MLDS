@@ -1,0 +1,15 @@
+None
+aqua
+black
+blue
+brown
+green
+orange
+pink
+purple
+red
+yellow
+bicolored
+gray
+11
+eyes

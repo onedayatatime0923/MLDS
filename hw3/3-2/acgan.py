@@ -21,8 +21,12 @@ dm.tb_setting(TENSORBOARD_DIR)
 dm.get_extra_data('extra', i_path= '{}/extra_data/images'.format(INPUT_DIR), c_path= '{}/extra_data/tags.csv'.format(INPUT_DIR))
 dm.get_anime_data('anime', i_path= '{}/faces'.format(INPUT_DIR), c_path= '{}/tags_clean.csv'.format(INPUT_DIR))
 data_size, label_dim= dm.dataloader('train',['extra', 'anime'] )
+dm.hair.save('hair.txt')
+dm.eyes.save('eyes.txt')
 print('data_size: {}'.format(data_size))
 print('label_dim: {}'.format(label_dim))
+input()
+
 
 generator= Generator(LATENT_DIM+ sum(label_dim), GENERATOR_HIDDEN_CHANNEL, data_size[0]).cuda()
 discriminator= Discriminator( data_size[0], DISCRIMINATOR_HIDDEN_CHANNEL, label_dim).cuda()

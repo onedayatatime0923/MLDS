@@ -152,12 +152,12 @@ print(net_G)
 print('-'*50) 
 optimizerD = optim.Adam(net_D.parameters(), lr=0.0002, betas=(0.5, 0.999))
 optimizerG = optim.Adam(net_G.parameters(), lr=0.0002, betas=(0.5, 0.999))
-'''
 criterion = nn.BCELoss()
 
 #training_set = get_data('../data/faces',num=args.train_num,name='train',batch_size=args.batch_size,shuffle=True)
 #print('saved data ...')
 #input()
+training_set = get_data('../data/extra_data/images',num=args.train_num,name='train_extra',batch_size=args.batch_size,shuffle=True)
 
 
 arr1 = np.load('train.npy')
@@ -302,7 +302,6 @@ for epoch in range(1,args.epoch+1):
     rand_faces(5,epoch,net_G)
     if epoch%5 == 0 and epoch > 20 :
         torch.save(net_G,'model_generator_'+str(epoch)+'.pt')
-'''
 
 ## plot 
 def save_imgs(gen_imgs):
