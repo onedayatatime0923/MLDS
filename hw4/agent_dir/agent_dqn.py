@@ -3,7 +3,8 @@ import numpy as np
 import torch
 from torch import nn
 from torch.autograd import Variable
-import random, copy, time, math, sys
+from tensorboardX import SummaryWriter 
+import random, copy, time, math, sys, os
 from agent_dir.agent import Agent
 
 class Agent_DQN(Agent):
@@ -25,9 +26,17 @@ class Agent_DQN(Agent):
         self.action_dim = env.get_action_space().n
         self.current_model = QNetwork(self.state_dim, self.action_dim, args).cuda()
         self.target_model = copy.deepcopy(self.current_model)
+        self.optimizer = torch.optim.RMSprop(self.current_model.parameters(),lr=args.learning_rate)
         self.buffer = ReplayBuffer( env, args)
 
         self.args = args
+        self.tb_setting('./runs/{}'.format(args.tensorboard_dir))
+    def tb_setting(self, directory):
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        for f in os.listdir(directory): 
+            os.remove('{}/{}'.format(directory,f))
+        self.writer = SummaryWriter(directory)
     def init_game_setting(self):
         """
 
@@ -39,7 +48,7 @@ class Agent_DQN(Agent):
         # YOUR CODE HERE #
         ##################
         pass
-    def train(self, print_every=100000):
+    def train(self, print_every=10000):
         """
         Implement your training algorithm here
         """
@@ -50,10 +59,11 @@ class Agent_DQN(Agent):
         self.current_model.train()
         criterion = nn.MSELoss()
         epsilon = np.linspace(self.args.epsilon[0],self.args.epsilon[1],self.args.step_n)
+        episodes = 0
         for e in range(self.args.step_n):
             if (e+1) % self.args.target_update_step ==0:
                 self.target_model = copy.deepcopy(self.current_model)
-            trajectory = self.buffer.collect_data(self.current_model, epsilon[e])
+            trajectory, episode = self.buffer.collect_data(self.current_model, epsilon[e])
             state= Variable(torch.cat([i[0] for i in trajectory],0).cuda())
             action = Variable(torch.cat([i[1] for i in trajectory],0).cuda())
             reward = Variable(torch.FloatTensor([i[2] for i in trajectory]).cuda())
@@ -66,20 +76,24 @@ class Agent_DQN(Agent):
             action_index = action.unsqueeze(1)
             state_value= torch.gather(self.current_model(state),1, action_index)
             expected_value = torch.max(self.target_model(state_n).detach(),1)[0] + reward
+            #print(reward)
+            #print(state_value)
+            #print(expected_value)
 
             loss = criterion(state_value, expected_value)
-            self.current_model.optimizer.zero_grad()
+            self.optimizer.zero_grad()
             loss.backward()
-            self.current_model.optimizer.step()
-            print('\rTrain Step: {} | Loss: {:.2f} | Time: {}  '.format(
-                e + 1, float(loss) , 
+            self.optimizer.step()
+            episodes += episode
+            print('\rTrain Step: {} | Episode: {:.0f} | Loss: {:.2f} | Time: {}  '.format(
+                e + 1,  episodes, float(loss) ,
                 self.timeSince(start, (e - ((e-1)// print_every)* print_every)/ print_every )),end='')
             sys.stdout.flush()
             if (e+1) % print_every ==0:
                 print()
-                self.test()
+                self.test((e+1)// print_every)
                 start= time.time()
-    def test(self):
+    def test(self, epoch=0):
         self.current_model.eval()
         done = False
         states=self.env.reset()
@@ -96,6 +110,8 @@ class Agent_DQN(Agent):
         print('======[testing score]======')
         print('reward: ', rewards)
         print('len', cnt)
+        self.writer.add_scalar('Test Reward', rewards, epoch)
+        self.writer.add_scalar('Test Length', cnt, epoch)
     def make_action(self, observation, test=True):
         """
         Return predicted action of your agent
@@ -144,19 +160,28 @@ class QNetwork(nn.Module):
             nn.Linear( 64* (input_size[0]// 8) * (input_size[1]// 8), 512),
             nn.ReLU(),
             nn.Linear(512 , action_dim))
-
-        self.optimizer = self.optimizer(lr=args.learning_rate)
+        self._initialize_weights()
     def forward(self,x ):
         # input is batch_size x 84 x 84 x 4
-        x = x.permute(0,3,1,2)
+        x = x.permute(0,3,1,2)/255
         x = self.cnn(x)
         x = x.view(x.size(0),-1)
         x = self.linear(x)
         return x
-    def optimizer(self,lr):
-        return torch.optim.RMSprop(self.parameters(),lr=lr)
-    def clip_grad_norm(self,threshold):
-        torch.nn.utils.clip_grad_norm(self.parameters(),threshold)
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+                if m.bias is not None:
+                    m.bias.data.zero_()
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+            elif isinstance(m, nn.Linear):
+                m.weight.data.normal_(0, 0.01)
+                m.bias.data.zero_()
+
 
 class ReplayBuffer():
     def __init__(self, env, args):
@@ -171,20 +196,25 @@ class ReplayBuffer():
         self.step = args.current_update_step
         self.batch_size = args.batch_size
     def collect_data(self, model, epsilon):
+        episode=0
         for s in range(self.step):
             if (self.done):
                 self.state= torch.FloatTensor(self.env.reset()).unsqueeze(0)
+                self.done = False
             action = self.epsilon_greedy(model(Variable(self.state.cuda())), epsilon)
             observation, reward, done, _ = self.env.step(int(action))
             state_n = torch.FloatTensor(observation).unsqueeze(0)
             self.buffer.append([self.state.clone(), action, reward, state_n.clone()])
             self.state= state_n
             self.done= done
+            if (self.done):
+                episode +=1
         self.buffer= self.buffer[-self.buffer_size:]
 
         batch_size = min(self.batch_size, len(self.buffer))
         result = random.sample(self.buffer, batch_size)
-        return result
+        #print(len(self.buffer))
+        return result, episode
     def epsilon_greedy(self, action_value, epsilon):
         if random.random() < epsilon:
             #print(torch.max(action_value,1)[1].cpu().data.size())
