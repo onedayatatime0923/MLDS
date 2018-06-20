@@ -149,7 +149,7 @@ print(net_D)
 print('-'*50)
 print(net_G)
 print('-'*50) 
-optimizerD = optim.Adam(net_D.parameters(), lr=0.0002, betas=(0.5, 0.999))
+optimizerD = optim.SGD(net_D.parameters(), lr=0.0002)
 optimizerG = optim.Adam(net_G.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
 criterion = nn.BCELoss()

@@ -139,10 +139,10 @@ class generator(nn.Module):
  
 net_D = discriminator(nc=3, ngf=64, ndf=64, latent_size = args.latent_size ).cuda()
 net_G = generator(nc=3, ngf=64, ndf=64, latent_size = args.latent_size ).cuda() 
-print(net_D)
-print('-'*50)
-print(net_G)
-print('-'*50) 
+#print(net_D)
+#print('-'*50)
+#print(net_G)
+#print('-'*50) 
 optimizerD = optim.Adam(net_D.parameters(), lr=0.0002, betas=(0.5, 0.999))
 optimizerG = optim.Adam(net_G.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
@@ -167,7 +167,7 @@ def save_imgs(gen_imgs):
     r, c = 5, 5 
     fig, axs = plt.subplots(r, c)
     cnt = 0 
-    print(gen_imgs)
+    #print(gen_imgs)
     for i in range(r):
         for j in range(c):
             axs[i,j].imshow(gen_imgs[cnt, :,:,:])
@@ -177,7 +177,7 @@ def save_imgs(gen_imgs):
     plt.close()
 
 torch.manual_seed(424)
-model = torch.load('model.pt')
+model = torch.load('model/dcgan/model_generator_40.pt')
 rand_faces(model)
 
 
