@@ -66,16 +66,19 @@ class Agent_DQN(Agent):
             trajectory, episode = self.buffer.collect_data(self.current_model, epsilon[e])
             state= Variable(torch.cat([i[0] for i in trajectory],0).cuda())
             action = Variable(torch.cat([i[1] for i in trajectory],0).cuda())
-            reward = Variable(torch.FloatTensor([i[2] for i in trajectory]).cuda())
-            state_n= Variable(torch.cat([i[3] for i in trajectory],0).cuda())
-            #print(state)
-            #print(action)
-            #print(reward)
-            #print(state_n)
+            state_n= Variable(torch.cat([i[2] for i in trajectory],0).cuda())
+            reward = Variable(torch.FloatTensor([i[3] for i in trajectory]).cuda())
+            done = Variable(torch.LongTensor([i[4] for i in trajectory]).cuda())
+            print(state.size())
+            print(action)
+            print(state_n.size())
+            print(reward)
+            print(done)
+            input()
 
             action_index = action.unsqueeze(1)
             state_value= torch.gather(self.current_model(state),1, action_index)
-            expected_value = torch.max(self.target_model(state_n).detach(),1)[0] + reward
+            expected_value = torch.max(self.target_model(state_n).detach(),1)[0] *( 1 - done)+ reward
             #print(reward)
             #print(state_value)
             #print(expected_value)
@@ -186,12 +189,12 @@ class QNetwork(nn.Module):
 class ReplayBuffer():
     def __init__(self, env, args):
         self.env = env
-        self.action_dim = env.get_action_space().n
-        self.done = True
-        self.state= None
+        self.state= torch.FloatTensor(self.env.reset()).unsqueeze(0)
+        self.done = False
 
         self.buffer=[]
 
+        self.action_dim = env.get_action_space().n
         self.buffer_size = args.buffer_size
         self.step = args.current_update_step
         self.batch_size = args.batch_size
@@ -201,14 +204,13 @@ class ReplayBuffer():
             if (self.done):
                 self.state= torch.FloatTensor(self.env.reset()).unsqueeze(0)
                 self.done = False
+                episode +=1
             action = self.epsilon_greedy(model(Variable(self.state.cuda())), epsilon)
             observation, reward, done, _ = self.env.step(int(action))
             state_n = torch.FloatTensor(observation).unsqueeze(0)
-            self.buffer.append([self.state.clone(), action, reward, state_n.clone()])
+            self.buffer.append([self.state, action, state_n, reward, done])
             self.state= state_n
             self.done= done
-            if (self.done):
-                episode +=1
         self.buffer= self.buffer[-self.buffer_size:]
 
         batch_size = min(self.batch_size, len(self.buffer))
@@ -224,4 +226,3 @@ class ReplayBuffer():
             #print(torch.max(action_value,1)[1].cpu().data.size())
             #print(torch.LongTensor([random.randint(0,self.action_dim-1)]).size())
             return torch.max(action_value,1)[1].cpu().data
-
