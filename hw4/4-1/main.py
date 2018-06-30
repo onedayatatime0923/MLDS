@@ -26,7 +26,8 @@ def parse():
 def run(args):
     if args.train_pg:
         env_name = args.env_name or 'Pong-v0'
-        env = Environment(env_name, args)
+        print(env_name)
+        env = Environment(env_name, args) 
         from agent_dir.agent_pg import Agent_PG
         agent = Agent_PG(env, args)
         agent.train()

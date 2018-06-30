@@ -6,6 +6,7 @@ You DO NOT need to upload this file
 """
 import gym
 import numpy as np
+import pdb
 from atari_wrapper import make_wrap_atari
 
 class Environment(object):
