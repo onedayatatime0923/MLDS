@@ -6,6 +6,7 @@ from torch.autograd import Variable
 from tensorboardX import SummaryWriter 
 import random, copy, time, math, sys, os
 from agent_dir.agent import Agent
+from atari_wrapper import make_wrap_atari
 
 class Agent_DQN(Agent):
     def __init__(self, env, args):
@@ -22,11 +23,14 @@ class Agent_DQN(Agent):
         ##################
 
         self.env = env
+        self.test_env = make_wrap_atari('BreakoutNoFrameskip-v4', False)
         self.state_dim = env.get_observation_space().shape
         self.action_dim = env.get_action_space().n
-        self.current_model = QNetwork(self.state_dim, self.action_dim, args).cuda()
+        self.current_model = QNetwork(self.state_dim, self.action_dim).cuda()
         self.target_model = copy.deepcopy(self.current_model)
-        self.optimizer = torch.optim.Adam(self.current_model.parameters(),lr=args.learning_rate)
+        #self.optimizer = torch.optim.RMSprop(self.current_model.parameters(), lr=args.learning_rate, eps=1E-6, weight_decay=0.9, momentum=0)
+        self.optimizer = torch.optim.RMSprop(self.current_model.parameters(), lr=args.learning_rate)
+        #self.optimizer = torch.optim.Adam(self.current_model.parameters(), lr= args.learning_rate)
         self.buffer = ReplayBuffer( env, args)
 
         self.args = args
@@ -48,7 +52,7 @@ class Agent_DQN(Agent):
         # YOUR CODE HERE #
         ##################
         pass
-    def train(self, print_every=3000):
+    def train(self, print_every=3000, running_n = 30):
         """
         Implement your training algorithm here
         """
@@ -62,10 +66,9 @@ class Agent_DQN(Agent):
         epsilon = np.hstack((explore_epsilon,exploitation_epsilon))
         start= time.time()
         
-        reward_last = 0
         episode_last = 0
         loss_batch = 0
-        for e in range(self.args.explore_epsilon + self.args.exploitation_step):
+        for e in range(self.args.explore_step + self.args.exploitation_step):
             if (e+1) % self.args.target_update_step ==0:
                 self.target_model = copy.deepcopy(self.current_model)
             trajectory = self.buffer.collect_data(self.current_model, epsilon[e])
@@ -97,28 +100,31 @@ class Agent_DQN(Agent):
                 e + 1,  float(loss) ,
                 self.timeSince(start, (e - ((e-1)// print_every)* print_every)/ print_every )),end='')
             sys.stdout.flush()
+            # record
+            reward_ave = sum(self.buffer.reward[-running_n-1:-1]) / running_n
+            self.writer.add_scalar('Train Reward', reward_ave, e)
             if (e+1) % print_every ==0:
-                reward_ave = (self.buffer.reward - reward_last)/(self.buffer.episode - episode_last)
-                print('\rTrain Step: {} | Total Episode: {:.0f} | Average Reward: {:.2f} | Loss: {:.4f} | Time: {}  '.format(
-                    e + 1,  self.buffer.episode, reward_ave, loss_batch/ print_every,
+                reward_ave = sum(self.buffer.reward[episode_last:-1]) / (len(self.buffer.reward)-1 - episode_last)
+                print('\rTrain Step: {} | Episode: {:.0f} Total Episode: {:.0f} | Average Reward: {:.2f} | Loss: {:.4f} | Time: {}  '.format(
+                    e + 1,  len(self.buffer.reward)-1- episode_last, len(self.buffer.reward)-1 , reward_ave, loss_batch/ print_every,
                     self.timeSince(start, 1)))
-                reward_last = self.buffer.reward
-                episode_last = self.buffer.episode
+                episode_last = len(self.buffer.reward)-1
                 loss_batch = 0
                 self.test((e+1)// print_every)
                 start= time.time()
     def test(self, epoch=0):
         self.current_model.eval()
         done = False
-        states=self.env.reset()
+        state=np.array(self.test_env.reset())
         rewards = 0.0
         cnt = 0
         while not done:
-            x = Variable(torch.FloatTensor(states).unsqueeze(0).cuda())
+            x = Variable(torch.FloatTensor(state).unsqueeze(0).cuda())
             action= torch.max(self.current_model(x),1)[1].cpu().data
-            state_n , reward , done, _ = self.env.step(int(action))
+            state_n , reward , done, _ = self.test_env.step(int(action))
             #if done: print(action_softmax)
             
+            state = np.array(state_n)
             rewards += reward
             cnt += 1
             if( cnt >self.args.test_max_step):
@@ -156,7 +162,7 @@ class Agent_DQN(Agent):
         return '%dm %ds' % (m, s)
 
 class QNetwork(nn.Module):
-    def __init__(self, input_size, action_dim, args):
+    def __init__(self, input_size, action_dim):
         super(QNetwork, self).__init__()
         self.LeakyReLU= nn.LeakyReLU(0.2, inplace= True)
         self.SELU = nn.SELU()
@@ -215,20 +221,19 @@ class ReplayBuffer():
         self.step = args.current_update_step
         self.batch_size = args.batch_size
 
-        self.episode = 0
-        self.reward = 0
+        self.reward = [0]
     def collect_data(self, model, epsilon):
         for s in range(self.step):
             if (self.done):
                 self.state= torch.FloatTensor(self.env.reset()).unsqueeze(0)
                 self.done = False
-                self.episode +=1
+                self.reward.append(0)
             action = self.epsilon_greedy(model(Variable(self.state.cuda())), epsilon)
             observation, reward, done, _ = self.env.step(int(action))
             state_n = torch.FloatTensor(observation).unsqueeze(0)
             self.buffer.append([self.state, action, state_n, reward, done])
 
-            self.reward += reward
+            self.reward[-1] += reward
 
             self.state= state_n
             self.done= done
