@@ -8,8 +8,8 @@ def add_arguments(parser):
         parser.add_argument('--learning_rate', type=float, default=0.01, help='learning rate for training')
     '''
     BUFFER_SIZE = 10000
-    EXPLORE_STEP= 500000
-    EXPLOITATION_STEP=400000
+    EXPLORE_STEP= 800000
+    EXPLOITATION_STEP=800000
     BATCH_SIZE = 64
     CURRENT_UPDATE_STEP = 4
     TARGET_UPDATE_STEP = 1000

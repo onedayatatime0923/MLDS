@@ -23,7 +23,6 @@ class Agent_DQN(Agent):
         ##################
 
         self.env = env
-        self.test_env = make_wrap_atari('BreakoutNoFrameskip-v4', False)
         self.state_dim = env.get_observation_space().shape
         self.action_dim = env.get_action_space().n
         self.current_model = QNetwork(self.state_dim, self.action_dim).cuda()
@@ -115,13 +114,13 @@ class Agent_DQN(Agent):
     def test(self, epoch=0):
         self.current_model.eval()
         done = False
-        state=np.array(self.test_env.reset())
+        state=np.array(self.env.reset())
         rewards = 0.0
         cnt = 0
         while not done:
             x = Variable(torch.FloatTensor(state).unsqueeze(0).cuda())
             action= torch.max(self.current_model(x),1)[1].cpu().data
-            state_n , reward , done, _ = self.test_env.step(int(action))
+            state_n , reward , done, _ = self.env.step(int(action))
             #if done: print(action_softmax)
             
             state = np.array(state_n)
@@ -238,8 +237,9 @@ class ReplayBuffer():
             x = Variable(self.state.cuda())
             action = self.epsilon_greedy(model(x), epsilon)
             observation, reward, done, _ = self.env.step(int(action))
+            reward_clamp = min(1, max(-1, reward))
             state_n = torch.FloatTensor(observation).unsqueeze(0)
-            self.buffer.append([self.state, action, state_n, reward, done])
+            self.buffer.append([self.state, action, state_n, reward_clamp, done])
 
             self.reward[-1] += reward
 
