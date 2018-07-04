@@ -51,7 +51,7 @@ class Agent_DQN(Agent):
         # YOUR CODE HERE #
         ##################
         pass
-    def train(self, print_every=3000, running_n = 30):
+    def train(self, print_every=3000, running_n = 30, save_path = './model/model_dqn.pt'):
         """
         Implement your training algorithm here
         """
@@ -67,6 +67,7 @@ class Agent_DQN(Agent):
         
         episode_last = 0
         loss_batch = 0
+        record = 0
         for e in range(self.args.explore_step + self.args.exploitation_step):
             if (e+1) % self.args.target_update_step ==0:
                 self.target_model = copy.deepcopy(self.current_model)
@@ -107,6 +108,10 @@ class Agent_DQN(Agent):
                 print('\rTrain Step: {} | Episode: {:.0f} Total Episode: {:.0f} | Average Reward: {:.2f} | Loss: {:.4f} | Time: {}  '.format(
                     e + 1,  len(self.buffer.reward)-1- episode_last, len(self.buffer.reward)-1 , reward_ave, loss_batch/ print_every,
                     self.timeSince(start, 1)))
+                if reward_ave > record:
+                    record = reward_ave
+                    torch.save(self.current_model, save_path)
+                    print('model saved!!!')
                 episode_last = len(self.buffer.reward)-1
                 loss_batch = 0
                 self.test((e+1)// print_every)

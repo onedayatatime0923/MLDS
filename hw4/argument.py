@@ -7,15 +7,15 @@ def add_arguments(parser):
         parser.add_argument('--batch_size', type=int, default=32, help='batch size for training')
         parser.add_argument('--learning_rate', type=float, default=0.01, help='learning rate for training')
     '''
-    BUFFER_SIZE = 10000
+    BUFFER_SIZE = 50000
     EXPLORE_STEP= 800000
-    EXPLOITATION_STEP=800000
-    BATCH_SIZE = 64
+    EXPLOITATION_STEP=1500000
+    BATCH_SIZE = 128
     CURRENT_UPDATE_STEP = 4
     TARGET_UPDATE_STEP = 1000
-    LEARNING_RATE = 1.5E-4
+    LEARNING_RATE = 1E-3
     GAMMA = 0.99
-    EPSILON = [ 1, 0.025]
+    EPSILON = [ 1, 0.1]
     TEST_MAX_STEP = 1000
     TENSORBOARD_DIR = 'train'
 
