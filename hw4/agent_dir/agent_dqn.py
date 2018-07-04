@@ -29,8 +29,8 @@ class Agent_DQN(Agent):
         self.current_model = QNetwork(self.state_dim, self.action_dim).cuda()
         self.target_model = copy.deepcopy(self.current_model)
         #self.optimizer = torch.optim.RMSprop(self.current_model.parameters(), lr=args.learning_rate, eps=1E-6, weight_decay=0.9, momentum=0)
-        self.optimizer = torch.optim.RMSprop(self.current_model.parameters(), lr=args.learning_rate)
-        #self.optimizer = torch.optim.Adam(self.current_model.parameters(), lr= args.learning_rate)
+        #self.optimizer = torch.optim.RMSprop(self.current_model.parameters(), lr=args.learning_rate)
+        self.optimizer = torch.optim.Adam(self.current_model.parameters(), lr= args.learning_rate)
         self.buffer = ReplayBuffer( env, args)
 
         self.args = args
@@ -169,24 +169,30 @@ class QNetwork(nn.Module):
         # input size. 84 x 84 x 4
         self.cnn= nn.Sequential(
             # state size. 4 x 84 x 84
+            nn.BatchNorm2d(input_size[2]),
             nn.Conv2d( input_size[2], 32, 8, 4, 2, bias=True),
             # state size. 32 x 21x 21
+            nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.Conv2d( 32, 64, 4, 2, 1, bias=True),
+            nn.BatchNorm2d(64),
             # state size. 64 x 10 x 10
             nn.ReLU(),
             nn.Conv2d( 64, 64 , 3, 1, 1, bias=True),
+            nn.BatchNorm2d(64),
             # state size. (hidden_size*4) x 10 x 10
             nn.ReLU())
         self.linear = nn.Sequential(
             nn.Linear( 64* (input_size[0]// 8) * (input_size[1]// 8), 512),
+            nn.BatchNorm1d(512),
             nn.ReLU(),
             nn.Linear(512 , action_dim),
+            nn.BatchNorm1d(action_dim),
             nn.ReLU())
         self._initialize_weights()
     def forward(self,x ):
         # input is batch_size x 84 x 84 x 4
-        x = x.permute(0,3,1,2)
+        x = x.permute(0,3,1,2).contiguous()
         x = self.cnn(x)
         x = x.view(x.size(0),-1)
         x = self.linear(x)
@@ -223,12 +229,14 @@ class ReplayBuffer():
 
         self.reward = [0]
     def collect_data(self, model, epsilon):
+        model.eval()
         for s in range(self.step):
             if (self.done):
                 self.state= torch.FloatTensor(self.env.reset()).unsqueeze(0)
                 self.done = False
                 self.reward.append(0)
-            action = self.epsilon_greedy(model(Variable(self.state.cuda())), epsilon)
+            x = Variable(self.state.cuda())
+            action = self.epsilon_greedy(model(x), epsilon)
             observation, reward, done, _ = self.env.step(int(action))
             state_n = torch.FloatTensor(observation).unsqueeze(0)
             self.buffer.append([self.state, action, state_n, reward, done])
