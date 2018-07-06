@@ -5,14 +5,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from tensorboardX import SummaryWriter
+#from tensorboardX import SummaryWriter
 import scipy.misc
 from torch.autograd import *
 from torch.distributions import Bernoulli , Categorical
-import pylab as plt 
-import gym
-from itertools import count
-from collections import deque
+#import pylab as plt 
+#import gym
+#from itertools import count
+#from collections import deque
 
 writer = SummaryWriter('runs/exp_policy_v3') 
 
