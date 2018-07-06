@@ -50,6 +50,7 @@ class Agent_DQN(Agent):
         ##################
         # YOUR CODE HERE #
         ##################
+        self.current_model = torch.load('./model/model_dqn.pt')
         pass
     def train(self, print_every=3000, running_n = 30, save_path = './model/model_dqn.pt'):
         """
@@ -86,6 +87,8 @@ class Agent_DQN(Agent):
             #input()
 
             state_value= torch.gather(self.current_model(state),1, action)
+            #max_r = torch.max(self.current_model(state_n).detach(),1)[1].unsqueeze(1)
+            #expected_value = torch.gather(self.target_model(state_n).detach(),1,max_r) *( 1-done )* ( self.args.gamma)+ reward
             expected_value = torch.max(self.target_model(state_n).detach(),1)[0].unsqueeze(1) *( 1-done )* ( self.args.gamma)+ reward
             #print(reward)
             #print(state_value)
@@ -153,6 +156,8 @@ class Agent_DQN(Agent):
         ##################
         # YOUR CODE HERE #
         ##################
+        x = Variable(torch.FloatTensor(observation).unsqueeze(0).cuda())
+        action= torch.max(self.current_model(x),1)[1].cpu().data
         return self.env.get_random_action()
     def timeSince(self,since, percent):
         now = time.time()
