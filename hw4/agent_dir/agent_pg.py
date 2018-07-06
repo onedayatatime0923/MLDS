@@ -14,7 +14,6 @@ from torch.distributions import Bernoulli , Categorical
 #from itertools import count
 #from collections import deque
 
-writer = SummaryWriter('runs/exp_policy_v3') 
 
 class CNN(nn.Module):
     def __init__(self,action_space):
