@@ -6,6 +6,7 @@ from torch.autograd import Variable
 from tensorboardX import SummaryWriter 
 import random, copy, time, math, sys, os
 from agent_dir.agent import Agent
+from atari_wrapper import make_wrap_atari
 
 class Agent_DQN(Agent):
     def __init__(self, env, args):
@@ -24,9 +25,11 @@ class Agent_DQN(Agent):
         self.env = env
         self.state_dim = env.get_observation_space().shape
         self.action_dim = env.get_action_space().n
-        self.current_model = QNetwork(self.state_dim, self.action_dim, args).cuda()
+        self.current_model = QNetwork(self.state_dim, self.action_dim).cuda()
         self.target_model = copy.deepcopy(self.current_model)
-        self.optimizer = torch.optim.RMSprop(self.current_model.parameters(),lr=args.learning_rate)
+        #self.optimizer = torch.optim.RMSprop(self.current_model.parameters(), lr=args.learning_rate, eps=1E-6, weight_decay=0.9, momentum=0)
+        #self.optimizer = torch.optim.RMSprop(self.current_model.parameters(), lr=args.learning_rate)
+        self.optimizer = torch.optim.Adam(self.current_model.parameters(), lr= args.learning_rate)
         self.buffer = ReplayBuffer( env, args)
 
         self.args = args
@@ -48,37 +51,42 @@ class Agent_DQN(Agent):
         # YOUR CODE HERE #
         ##################
         pass
-    def train(self, print_every=10000):
+    def train(self, print_every=3000, running_n = 30, save_path = './model/model_dqn.pt'):
         """
         Implement your training algorithm here
         """
         ##################
         # YOUR CODE HERE #
         ##################
-        start= time.time()
         self.current_model.train()
         criterion = nn.MSELoss()
-        epsilon = np.linspace(self.args.epsilon[0],self.args.epsilon[1],self.args.step_n)
-        episodes = 0
-        for e in range(self.args.step_n):
+        explore_epsilon = np.linspace(self.args.epsilon[0],self.args.epsilon[1],self.args.explore_step)
+        exploitation_epsilon = np.ones((self.args.exploitation_step,))*self.args.epsilon[1]
+        epsilon = np.hstack((explore_epsilon,exploitation_epsilon))
+        start= time.time()
+        
+        episode_last = 0
+        loss_batch = 0
+        record = 0
+        for e in range(self.args.explore_step + self.args.exploitation_step):
             if (e+1) % self.args.target_update_step ==0:
                 self.target_model = copy.deepcopy(self.current_model)
-            trajectory, episode = self.buffer.collect_data(self.current_model, epsilon[e])
+            trajectory = self.buffer.collect_data(self.current_model, epsilon[e])
             state= Variable(torch.cat([i[0] for i in trajectory],0).cuda())
-            action = Variable(torch.cat([i[1] for i in trajectory],0).cuda())
+            action = Variable(torch.cat([i[1] for i in trajectory],0).cuda()).unsqueeze(1)
             state_n= Variable(torch.cat([i[2] for i in trajectory],0).cuda())
-            reward = Variable(torch.FloatTensor([i[3] for i in trajectory]).cuda())
-            done = Variable(torch.LongTensor([i[4] for i in trajectory]).cuda())
-            print(state.size())
-            print(action)
-            print(state_n.size())
-            print(reward)
-            print(done)
-            input()
+            reward = Variable(torch.FloatTensor([[i[3]] for i in trajectory]).cuda())
+            done = Variable(torch.FloatTensor([[i[4]] for i in trajectory]).cuda())
+            #print(state.size())
+            #print(action.size())
+            #print(state_n.size())
+            #print(reward.size())
+            #print(done.size())
+            #print(done)
+            #input()
 
-            action_index = action.unsqueeze(1)
-            state_value= torch.gather(self.current_model(state),1, action_index)
-            expected_value = torch.max(self.target_model(state_n).detach(),1)[0] *( 1 - done)+ reward
+            state_value= torch.gather(self.current_model(state),1, action)
+            expected_value = torch.max(self.target_model(state_n).detach(),1)[0].unsqueeze(1) *( 1-done )* ( self.args.gamma)+ reward
             #print(reward)
             #print(state_value)
             #print(expected_value)
@@ -87,29 +95,44 @@ class Agent_DQN(Agent):
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-            episodes += episode
-            print('\rTrain Step: {} | Episode: {:.0f} | Loss: {:.2f} | Time: {}  '.format(
-                e + 1,  episodes, float(loss) ,
+            loss_batch += float(loss)
+            print('\rTrain Step: {} | Loss: {:.4f} | Time: {}  '.format(
+                e + 1,  float(loss) ,
                 self.timeSince(start, (e - ((e-1)// print_every)* print_every)/ print_every )),end='')
             sys.stdout.flush()
+            # record
+            reward_ave = sum(self.buffer.reward[-running_n-1:-1]) / running_n
+            self.writer.add_scalar('Train Reward', reward_ave, e)
             if (e+1) % print_every ==0:
-                print()
+                reward_ave = sum(self.buffer.reward[episode_last:-1]) / (len(self.buffer.reward)-1 - episode_last)
+                print('\rTrain Step: {} | Episode: {:.0f} Total Episode: {:.0f} | Average Reward: {:.2f} | Loss: {:.4f} | Time: {}  '.format(
+                    e + 1,  len(self.buffer.reward)-1- episode_last, len(self.buffer.reward)-1 , reward_ave, loss_batch/ print_every,
+                    self.timeSince(start, 1)))
+                if reward_ave > record:
+                    record = reward_ave
+                    torch.save(self.current_model, save_path)
+                    print('model saved!!!')
+                episode_last = len(self.buffer.reward)-1
+                loss_batch = 0
                 self.test((e+1)// print_every)
                 start= time.time()
     def test(self, epoch=0):
         self.current_model.eval()
         done = False
-        states=self.env.reset()
+        state=np.array(self.env.reset())
         rewards = 0.0
         cnt = 0
         while not done:
-            x = Variable(torch.FloatTensor(states).unsqueeze(0).cuda())
+            x = Variable(torch.FloatTensor(state).unsqueeze(0).cuda())
             action= torch.max(self.current_model(x),1)[1].cpu().data
             state_n , reward , done, _ = self.env.step(int(action))
             #if done: print(action_softmax)
             
+            state = np.array(state_n)
             rewards += reward
             cnt += 1
+            if( cnt >self.args.test_max_step):
+                break
         print('======[testing score]======')
         print('reward: ', rewards)
         print('len', cnt)
@@ -143,30 +166,37 @@ class Agent_DQN(Agent):
         return '%dm %ds' % (m, s)
 
 class QNetwork(nn.Module):
-    def __init__(self, input_size, action_dim, args):
+    def __init__(self, input_size, action_dim):
         super(QNetwork, self).__init__()
         self.LeakyReLU= nn.LeakyReLU(0.2, inplace= True)
         self.SELU = nn.SELU()
         # input size. 84 x 84 x 4
         self.cnn= nn.Sequential(
             # state size. 4 x 84 x 84
+            nn.BatchNorm2d(input_size[2]),
             nn.Conv2d( input_size[2], 32, 8, 4, 2, bias=True),
             # state size. 32 x 21x 21
+            nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.Conv2d( 32, 64, 4, 2, 1, bias=True),
+            nn.BatchNorm2d(64),
             # state size. 64 x 10 x 10
             nn.ReLU(),
             nn.Conv2d( 64, 64 , 3, 1, 1, bias=True),
+            nn.BatchNorm2d(64),
             # state size. (hidden_size*4) x 10 x 10
             nn.ReLU())
         self.linear = nn.Sequential(
             nn.Linear( 64* (input_size[0]// 8) * (input_size[1]// 8), 512),
+            nn.BatchNorm1d(512),
             nn.ReLU(),
-            nn.Linear(512 , action_dim))
+            nn.Linear(512 , action_dim),
+            nn.BatchNorm1d(action_dim),
+            nn.ReLU())
         self._initialize_weights()
     def forward(self,x ):
         # input is batch_size x 84 x 84 x 4
-        x = x.permute(0,3,1,2)/255
+        x = x.permute(0,3,1,2).contiguous()
         x = self.cnn(x)
         x = x.view(x.size(0),-1)
         x = self.linear(x)
@@ -188,27 +218,36 @@ class QNetwork(nn.Module):
 
 class ReplayBuffer():
     def __init__(self, env, args):
+        # for game
         self.env = env
         self.state= torch.FloatTensor(self.env.reset()).unsqueeze(0)
         self.done = False
 
         self.buffer=[]
 
+        # parameter
         self.action_dim = env.get_action_space().n
         self.buffer_size = args.buffer_size
         self.step = args.current_update_step
         self.batch_size = args.batch_size
+
+        self.reward = [0]
     def collect_data(self, model, epsilon):
-        episode=0
+        model.eval()
         for s in range(self.step):
             if (self.done):
                 self.state= torch.FloatTensor(self.env.reset()).unsqueeze(0)
                 self.done = False
-                episode +=1
-            action = self.epsilon_greedy(model(Variable(self.state.cuda())), epsilon)
+                self.reward.append(0)
+            x = Variable(self.state.cuda())
+            action = self.epsilon_greedy(model(x), epsilon)
             observation, reward, done, _ = self.env.step(int(action))
+            reward_clamp = min(1, max(-1, reward))
             state_n = torch.FloatTensor(observation).unsqueeze(0)
-            self.buffer.append([self.state, action, state_n, reward, done])
+            self.buffer.append([self.state, action, state_n, reward_clamp, done])
+
+            self.reward[-1] += reward
+
             self.state= state_n
             self.done= done
         self.buffer= self.buffer[-self.buffer_size:]
@@ -216,7 +255,7 @@ class ReplayBuffer():
         batch_size = min(self.batch_size, len(self.buffer))
         result = random.sample(self.buffer, batch_size)
         #print(len(self.buffer))
-        return result, episode
+        return result
     def epsilon_greedy(self, action_value, epsilon):
         if random.random() < epsilon:
             #print(torch.max(action_value,1)[1].cpu().data.size())
