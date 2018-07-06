@@ -3,10 +3,10 @@ import numpy as np
 import torch
 from torch import nn
 from torch.autograd import Variable
+import torch.nn.functional as F
 from tensorboardX import SummaryWriter 
 import random, copy, time, math, sys, os
 from agent_dir.agent import Agent
-from atari_wrapper import make_wrap_atari
 
 class Agent_DQN(Agent):
     def __init__(self, env, args):
@@ -18,22 +18,29 @@ class Agent_DQN(Agent):
         if args.test_dqn:
             #you can load your model here
             print('loading trained model')
+            checkpoint = torch.load('4-2.pth.tar', map_location=lambda storage, loc: storage)
+            self.current_model = QNetwork_jason().cuda()
+            self.current_model.load_state_dict(checkpoint['state_dict'])
+            '''
+            self.current_model = torch.load('./model/model_dqn.pt')
+            '''
         ##################
         # YOUR CODE HERE #
         ##################
 
-        self.env = env
-        self.state_dim = env.get_observation_space().shape
-        self.action_dim = env.get_action_space().n
-        self.current_model = QNetwork(self.state_dim, self.action_dim).cuda()
-        self.target_model = copy.deepcopy(self.current_model)
-        #self.optimizer = torch.optim.RMSprop(self.current_model.parameters(), lr=args.learning_rate, eps=1E-6, weight_decay=0.9, momentum=0)
-        #self.optimizer = torch.optim.RMSprop(self.current_model.parameters(), lr=args.learning_rate)
-        self.optimizer = torch.optim.Adam(self.current_model.parameters(), lr= args.learning_rate)
-        self.buffer = ReplayBuffer( env, args)
+        else:
+            self.env = env
+            self.state_dim = env.get_observation_space().shape
+            self.action_dim = env.get_action_space().n
+            self.current_model = QNetwork(self.state_dim, self.action_dim).cuda()
+            self.target_model = copy.deepcopy(self.current_model)
+            #self.optimizer = torch.optim.RMSprop(self.current_model.parameters(), lr=args.learning_rate, eps=1E-6, weight_decay=0.9, momentum=0)
+            #self.optimizer = torch.optim.RMSprop(self.current_model.parameters(), lr=args.learning_rate)
+            self.optimizer = torch.optim.Adam(self.current_model.parameters(), lr= args.learning_rate)
+            self.buffer = ReplayBuffer( env, args)
 
-        self.args = args
-        self.tb_setting('./runs/{}'.format(args.tensorboard_dir))
+            self.args = args
+            self.tb_setting('./runs/{}'.format(args.tensorboard_dir))
     def tb_setting(self, directory):
         if not os.path.exists(directory):
             os.makedirs(directory)
@@ -50,9 +57,8 @@ class Agent_DQN(Agent):
         ##################
         # YOUR CODE HERE #
         ##################
-        self.current_model = torch.load('./model/model_dqn.pt')
         pass
-    def train(self, print_every=3000, running_n = 30, save_path = './model/model_dqn.pt'):
+    def train(self, print_every=3000, running_n = 30, save_path = './model/model_dqn2.pt'):
         """
         Implement your training algorithm here
         """
@@ -87,9 +93,9 @@ class Agent_DQN(Agent):
             #input()
 
             state_value= torch.gather(self.current_model(state),1, action)
-            #max_r = torch.max(self.current_model(state_n).detach(),1)[1].unsqueeze(1)
-            #expected_value = torch.gather(self.target_model(state_n).detach(),1,max_r) *( 1-done )* ( self.args.gamma)+ reward
-            expected_value = torch.max(self.target_model(state_n).detach(),1)[0].unsqueeze(1) *( 1-done )* ( self.args.gamma)+ reward
+            max_r = torch.max(self.current_model(state_n).detach(),1)[1].unsqueeze(1)
+            expected_value = torch.gather(self.target_model(state_n).detach(),1,max_r) *( 1-done )* ( self.args.gamma)+ reward
+            #expected_value = torch.max(self.target_model(state_n).detach(),1)[0].unsqueeze(1) *( 1-done )* ( self.args.gamma)+ reward
             #print(reward)
             #print(state_value)
             #print(expected_value)
@@ -156,9 +162,10 @@ class Agent_DQN(Agent):
         ##################
         # YOUR CODE HERE #
         ##################
-        x = Variable(torch.FloatTensor(observation).unsqueeze(0).cuda())
-        action= torch.max(self.current_model(x),1)[1].cpu().data
-        return self.env.get_random_action()
+        #x = Variable(torch.FloatTensor(observation).unsqueeze(0).cuda())
+        #action= int(torch.max(self.current_model(x),1)[1].cpu().data)
+        action = int(self.current_model(Variable(torch.FloatTensor(observation).unsqueeze(0)).cuda()).max(-1)[1].data[0]) + 1
+        return action
     def timeSince(self,since, percent):
         now = time.time()
         s = now - since
@@ -219,6 +226,27 @@ class QNetwork(nn.Module):
             elif isinstance(m, nn.Linear):
                 m.weight.data.normal_(0, 0.01)
                 m.bias.data.zero_()
+class QNetwork_jason(nn.Module):
+    def __init__(self):
+        super(QNetwork_jason, self).__init__()
+        self.conv1 = nn.Conv2d(4, 32, kernel_size=8, stride=4)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
+        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
+        self.fc4 = nn.Linear(7*7*64, 512)
+        self.fc5 = nn.Linear(512, 3)
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.xavier_normal(m.weight)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_normal(m.weight)
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x.permute(0, 3, 1, 2)))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+        x = F.relu(self.fc4(x.view(x.size(0), -1)))
+        return self.fc5(x)
 
 
 class ReplayBuffer():
