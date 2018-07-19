@@ -16,4 +16,5 @@ def add_arguments(parser):
     parser.add_argument('--learning_rate', type=float, default=1.5E-4, help='learning rate for training')
     parser.add_argument('--epsilon', type=float, nargs=2, default=[1, 0.025], help='epsilon for training')
     parser.add_argument('--tensorboard_dir', type=str, default='train', help='tensorboard dir')
+    parser.add_argument('--model_path', type=str, default='model/model.pt', help='model path')
     return parser

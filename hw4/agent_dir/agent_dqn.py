@@ -48,7 +48,7 @@ class Agent_DQN(Agent):
         # YOUR CODE HERE #
         ##################
         pass
-    def train(self, print_every=10000):
+    def train(self, print_every=100):
         """
         Implement your training algorithm here
         """
@@ -72,13 +72,15 @@ class Agent_DQN(Agent):
             #print(action)
             #print(reward)
             #print(state_n)
+            #print(self.current_model(state))
 
             action_index = action.unsqueeze(1)
-            state_value= torch.gather(self.current_model(state),1, action_index)
+            state_value= torch.gather(self.current_model(state),1, action_index).squeeze(1)
             expected_value = torch.max(self.target_model(state_n).detach(),1)[0] + reward
             #print(reward)
             #print(state_value)
             #print(expected_value)
+            #input()
 
             loss = criterion(state_value, expected_value)
             self.optimizer.zero_grad()
@@ -92,26 +94,32 @@ class Agent_DQN(Agent):
             if (e+1) % print_every ==0:
                 print()
                 self.test((e+1)// print_every)
+                torch.save(self.current_model, self.args.model_path)
                 start= time.time()
     def test(self, epoch=0):
         self.current_model.eval()
-        done = False
-        states=self.env.reset()
-        rewards = 0.0
-        cnt = 0
-        while not done:
-            x = Variable(torch.FloatTensor(states).unsqueeze(0).cuda())
-            action= torch.max(self.current_model(x),1)[1].cpu().data
-            state_n , reward , done, _ = self.env.step(int(action))
-            #if done: print(action_softmax)
-            
-            rewards += reward
-            cnt += 1
-        print('======[testing score]======')
-        print('reward: ', rewards)
-        print('len', cnt)
-        self.writer.add_scalar('Test Reward', rewards, epoch)
-        self.writer.add_scalar('Test Length', cnt, epoch)
+        with torch.no_grad():
+            done = False
+            states=self.env.reset()
+            rewards = 0.0
+            cnt = 0
+            while not done:
+                x = Variable(torch.FloatTensor(states).unsqueeze(0).cuda())
+                action= torch.max(self.current_model(x),1)[1].cpu().data
+                state_n , reward , done, _ = self.env.step(int(action))
+                '''
+                if done:
+                    print(self.current_model(x))
+                    print(action)
+                '''
+                
+                rewards += reward
+                cnt += 1
+            print('======[testing score]======')
+            print('reward: ', rewards)
+            print('len', cnt)
+            self.writer.add_scalar('Test Reward', rewards, epoch)
+            self.writer.add_scalar('Test Length', cnt, epoch)
     def make_action(self, observation, test=True):
         """
         Return predicted action of your agent
@@ -157,9 +165,9 @@ class QNetwork(nn.Module):
             # state size. (hidden_size*4) x 10 x 10
             nn.ReLU())
         self.linear = nn.Sequential(
-            nn.Linear( 64* (input_size[0]// 8) * (input_size[1]// 8), 512),
+            nn.Linear( 64* (input_size[0]// 8) * (input_size[1]// 8), 256),
             nn.ReLU(),
-            nn.Linear(512 , action_dim))
+            nn.Linear(256 , action_dim))
         self._initialize_weights()
     def forward(self,x ):
         # input is batch_size x 84 x 84 x 4
@@ -181,7 +189,6 @@ class QNetwork(nn.Module):
             elif isinstance(m, nn.Linear):
                 m.weight.data.normal_(0, 0.01)
                 m.bias.data.zero_()
-
 
 class ReplayBuffer():
     def __init__(self, env, args):
